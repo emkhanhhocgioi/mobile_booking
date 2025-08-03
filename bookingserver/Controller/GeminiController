@@ -1,0 +1,26 @@
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+require('dotenv').config();
+
+const geminiApiKey = process.env.gemini_key; 
+  
+
+const genAI = new GoogleGenerativeAI(geminiApiKey); 
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+const generateText = async (req, res) => {
+    const { prompt } = req.body;
+
+    if (!prompt) {
+        return res.status(400).json({ error: "Prompt is required" });
+    }
+
+    try {
+        const result = await model.generateContent(prompt);
+        return res.status(200).json({ success: true, data: result });
+    } catch (error) {
+        console.error("Error generating content:", error);
+        return res.status(500).json({ success: false, error: "Failed to generate content" });
+    }
+};
+
+module.exports = {generateText}
