@@ -44,33 +44,33 @@ const SignUpScreenCustomer = () => {
         const newErrors = {};
 
         if (!Username.trim()) {
-            newErrors.username = 'Username is required';
+            newErrors.username = 'Tên đăng nhập là bắt buộc';
         } else if (Username.trim().length < 3) {
-            newErrors.username = 'Username must be at least 3 characters';
+            newErrors.username = 'Tên đăng nhập phải có ít nhất 3 ký tự';
         }
 
         if (!Email.trim()) {
-            newErrors.email = 'Email is required';
+            newErrors.email = 'Email là bắt buộc';
         } else if (!validateEmail(Email)) {
-            newErrors.email = 'Please enter a valid email address';
+            newErrors.email = 'Vui lòng nhập địa chỉ email hợp lệ';
         }
 
         if (!phonenumber.trim()) {
-            newErrors.phone = 'Phone number is required';
+            newErrors.phone = 'Số điện thoại là bắt buộc';
         } else if (!validatePhone(phonenumber)) {
-            newErrors.phone = 'Please enter a valid phone number';
+            newErrors.phone = 'Vui lòng nhập số điện thoại hợp lệ';
         }
 
         if (!Password) {
-            newErrors.password = 'Password is required';
+            newErrors.password = 'Mật khẩu là bắt buộc';
         } else if (!validatePassword(Password)) {
-            newErrors.password = 'Password must be at least 6 characters';
+            newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
         }
 
         if (!ConfirmPassword) {
-            newErrors.confirmPassword = 'Please confirm your password';
+            newErrors.confirmPassword = 'Vui lòng xác nhận mật khẩu';
         } else if (Password !== ConfirmPassword) {
-            newErrors.confirmPassword = 'Passwords do not match';
+            newErrors.confirmPassword = 'Mật khẩu không khớp';
         }
 
         setErrors(newErrors);
@@ -101,8 +101,8 @@ const SignUpScreenCustomer = () => {
 
             if (res.status >= 200 && res.status < 300) {
                 Alert.alert(
-                    "Success!",
-                    "Account created successfully. Please log in.",
+                    "Thành công!",
+                    "Tài khoản đã được tạo thành công. Vui lòng đăng nhập.",
                     [
                         {
                             text: "OK",
@@ -111,18 +111,36 @@ const SignUpScreenCustomer = () => {
                     ]
                 );
             } else {
-                Alert.alert("Error", "Failed to create account. Please try again.");
+                Alert.alert("Lỗi", "Không thể tạo tài khoản. Vui lòng thử lại.");
             }
         } catch (error) {
             console.log(error.response ? error.response.data : error.message);
 
             if (error.response) {
-                const message = error.response.data.message || "Unable to connect to server";
-                Alert.alert("Registration Failed", message);
+                const status = error.response.status;
+                let message = "Không thể kết nối đến máy chủ";
+                
+                switch (status) {
+                    case 400:
+                        message = "Thông tin không hợp lệ. Vui lòng kiểm tra lại.";
+                        break;
+                    case 409:
+                        message = "Email hoặc tên đăng nhập đã tồn tại. Vui lòng chọn thông tin khác.";
+                        break;
+                    case 422:
+                        message = "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.";
+                        break;
+                    case 500:
+                        message = "Lỗi máy chủ. Vui lòng thử lại sau.";
+                        break;
+                    default:
+                        message = error.response.data.message || "Không thể kết nối đến máy chủ";
+                }
+                Alert.alert("Đăng ký thất bại", message);
             } else if (error.request) {
-                Alert.alert("Network Error", "No response from server. Please check your connection.");
+                Alert.alert("Lỗi mạng", "Không có phản hồi từ máy chủ. Vui lòng kiểm tra kết nối mạng.");
             } else {
-                Alert.alert("Error", "An unexpected error occurred. Please try again.");
+                Alert.alert("Lỗi", "Đã xảy ra lỗi không mong muốn. Vui lòng thử lại.");
             }
         } finally {
             setLoading(false);
@@ -154,8 +172,8 @@ const SignUpScreenCustomer = () => {
               </View>
             </View>
             
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Join thousands of travelers</Text>
+            <Text style={styles.title}>Tạo tài khoản</Text>
+            <Text style={styles.subtitle}>Tham gia cùng hàng nghìn du khách</Text>
           </View>
 
           {/* Form Section */}
@@ -166,7 +184,7 @@ const SignUpScreenCustomer = () => {
                 <Ionicons name="person-outline" size={20} color="#999" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="Username"
+                  placeholder="Tên đăng nhập"
                   placeholderTextColor="#999"
                   value={Username}
                   onChangeText={(text) => {
@@ -191,7 +209,7 @@ const SignUpScreenCustomer = () => {
                 <Ionicons name="mail-outline" size={20} color="#999" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="Email address"
+                  placeholder="Địa chỉ email"
                   placeholderTextColor="#999"
                   value={Email}
                   onChangeText={(text) => {
@@ -217,7 +235,7 @@ const SignUpScreenCustomer = () => {
                 <Ionicons name="call-outline" size={20} color="#999" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="Phone number"
+                  placeholder="Số điện thoại"
                   placeholderTextColor="#999"
                   value={phonenumber}
                   onChangeText={(text) => {
@@ -241,7 +259,7 @@ const SignUpScreenCustomer = () => {
                 <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="Password"
+                  placeholder="Mật khẩu"
                   placeholderTextColor="#999"
                   secureTextEntry={!showPassword}
                   value={Password}
@@ -275,7 +293,7 @@ const SignUpScreenCustomer = () => {
                 <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="Confirm password"
+                  placeholder="Xác nhận mật khẩu"
                   placeholderTextColor="#999"
                   secureTextEntry={!showConfirmPassword}
                   value={ConfirmPassword}
@@ -307,10 +325,10 @@ const SignUpScreenCustomer = () => {
             {/* Terms and Conditions */}
             <View style={styles.termsContainer}>
               <Text style={styles.termsText}>
-                By creating an account, you agree to our{' '}
-                <Text style={styles.termsLink}>Terms of Service</Text>
-                {' '}and{' '}
-                <Text style={styles.termsLink}>Privacy Policy</Text>
+                Bằng việc tạo tài khoản, bạn đồng ý với{' '}
+                <Text style={styles.termsLink}>Điều khoản dịch vụ</Text>
+                {' '}và{' '}
+                <Text style={styles.termsLink}>Chính sách bảo mật</Text>
               </Text>
             </View>
 
@@ -324,10 +342,10 @@ const SignUpScreenCustomer = () => {
               {loading ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color="#fff" />
-                  <Text style={styles.loadingText}>Creating account...</Text>
+                  <Text style={styles.loadingText}>Đang tạo tài khoản...</Text>
                 </View>
               ) : (
-                <Text style={styles.signupButtonText}>Create Account</Text>
+                <Text style={styles.signupButtonText}>Tạo tài khoản</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -335,9 +353,9 @@ const SignUpScreenCustomer = () => {
           {/* Footer Section */}
           <View style={styles.footerSection}>
             <View style={styles.loginPrompt}>
-              <Text style={styles.loginText}>Already have an account? </Text>
+              <Text style={styles.loginText}>Đã có tài khoản? </Text>
               <TouchableOpacity onPress={() => navigation.navigate('login')}>
-                <Text style={styles.loginLink}>Sign in</Text>
+                <Text style={styles.loginLink}>Đăng nhập</Text>
               </TouchableOpacity>
             </View>
           </View>

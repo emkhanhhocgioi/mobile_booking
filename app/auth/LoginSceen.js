@@ -4,6 +4,8 @@ import axios from 'axios';
 import { useNavigation } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import CustomToast from '../../components/CustomToast';
+import { ErrorMessages, getErrorMessageByStatus, ValidationUtils } from '../../utils/validationUtils';
 
 var baseUrl = "http://localhost:5000";
 
@@ -21,21 +23,83 @@ const LoginScreen = () => {
     const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [isFormValid, setIsFormValid] = useState(false);
+    const [fieldErrors, setFieldErrors] = useState({});
+    const [attemptCount, setAttemptCount] = useState(0);
+    const [showToast, setShowToast] = useState(false);
+    const [toastMessage, setToastMessage] = useState('');
+    const [toastType, setToastType] = useState('error');
+
+    // Validation functions using ValidationUtils
+    const validateField = (field, value) => {
+        const errors = {};
+        
+        if (field === 'username' || field === 'all') {
+            if (!username.trim()) {
+                errors.username = ErrorMessages.REQUIRED_USERNAME;
+            } else if (ValidationUtils.isEmailFormat(username)) {
+                if (!ValidationUtils.validateEmail(username)) {
+                    errors.username = ErrorMessages.INVALID_EMAIL;
+                }
+            } else {
+                if (!ValidationUtils.validateUsername(username)) {
+                    errors.username = ErrorMessages.INVALID_USERNAME;
+                }
+            }
+        }
+
+        if (field === 'password' || field === 'all') {
+            if (!password.trim()) {
+                errors.password = ErrorMessages.REQUIRED_PASSWORD;
+            } else if (!ValidationUtils.validatePassword(password)) {
+                errors.password = ErrorMessages.INVALID_PASSWORD;
+            }
+        }
+
+        return errors;
+    };
+
+    // Show toast helper
+    const showToastMessage = (message, type = 'error') => {
+        setToastMessage(message);
+        setToastType(type);
+        setShowToast(true);
+    };
 
     // Form validation
     React.useEffect(() => {
-        setIsFormValid(username.trim().length > 0 && password.length > 0);
-        if (error) setError(''); // Clear errors when user types
-    }, [username, password]);
+        const isValid = username.trim().length > 0 && password.length >= 6;
+        setIsFormValid(isValid);
+        
+        // Clear general error when user types
+        if (error) setError('');
+        
+        // Clear field-specific errors when user types
+        if (fieldErrors.username && username.trim()) {
+            setFieldErrors(prev => ({ ...prev, username: null }));
+        }
+        if (fieldErrors.password && password.trim()) {
+            setFieldErrors(prev => ({ ...prev, password: null }));
+        }
+    }, [username, password, error, fieldErrors]);
 
     const TestLogin = async () => {
-        if (!username.trim() || !password) {
-          setError('Please enter both username and password');
-          return;
+        // Validate form before submission
+        const validationErrors = validateField('all');
+        if (Object.keys(validationErrors).length > 0) {
+            setFieldErrors(validationErrors);
+            setError('Vui lòng kiểm tra lại thông tin đăng nhập');
+            return;
+        }
+
+        // Check for too many failed attempts
+        if (attemptCount >= 5) {
+            showToastMessage(ErrorMessages.TOO_MANY_ATTEMPTS);
+            return;
         }
         
         setLoading(true);
         setError('');
+        setFieldErrors({});
     
         const data = {
           uname: username.trim(),
@@ -47,10 +111,15 @@ const LoginScreen = () => {
             headers: {
               'Content-Type': 'application/json',
             },
+            timeout: 10000, // 10 second timeout
           });
           
-         const arr = [username.trim(), res.data];
+          const arr = [username.trim(), res.data];
           console.log('urole ='+res.data.urole)
+          
+          // Reset attempt count on successful login
+          setAttemptCount(0);
+          showToastMessage('Đăng nhập thành công!', 'success');
           
           if (res.data.urole === 0 ) {
             navigation.navigate('admin', {
@@ -65,12 +134,34 @@ const LoginScreen = () => {
           }
         } catch (err) {
           console.error('Login Error:', err);
+          setAttemptCount(prev => prev + 1);
+          
           if (err.response) {
-            setError(err.response.data.message || 'Invalid credentials. Please try again.');
+            const status = err.response.status;
+            const message = getErrorMessageByStatus(status);
+            
+            setError(message);
+            showToastMessage(message);
+            
+            // Set specific field errors for certain cases
+            if (status === 401 || status === 404) {
+              setFieldErrors({
+                username: status === 404 ? ErrorMessages.ACCOUNT_NOT_FOUND : '',
+                password: status === 401 ? ErrorMessages.LOGIN_FAILED : ''
+              });
+            }
           } else if (err.request) {
-            setError('Network error. Please check your connection.');
+            const message = ErrorMessages.NETWORK_ERROR;
+            setError(message);
+            showToastMessage(message);
+          } else if (err.code === 'ECONNABORTED') {
+            const message = 'Kết nối quá chậm. Vui lòng thử lại.';
+            setError(message);
+            showToastMessage(message);
           } else {
-            setError('Something went wrong. Please try again.');
+            const message = ErrorMessages.UNKNOWN_ERROR;
+            setError(message);
+            showToastMessage(message);
           }
         } finally {
           setLoading(false); 
@@ -78,6 +169,12 @@ const LoginScreen = () => {
       };
   return (
     <SafeAreaView style={styles.container}>
+      <CustomToast
+        visible={showToast}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setShowToast(false)}
+      />
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -94,8 +191,8 @@ const LoginScreen = () => {
                 <Ionicons name="bed" size={32} color="#007BFF" />
               </View>
             </View>
-            <Text style={styles.welcomeTitle}>Welcome Back</Text>
-            <Text style={styles.welcomeSubtitle}>Sign in to your account</Text>
+            <Text style={styles.welcomeTitle}>Chào mừng trở lại</Text>
+            <Text style={styles.welcomeSubtitle}>Đăng nhập vào tài khoản của bạn</Text>
           </View>
 
           {/* Form Section */}
@@ -110,32 +207,67 @@ const LoginScreen = () => {
             
             {/* Username Input */}
             <View style={styles.inputContainer}>
-              <View style={styles.inputWrapper}>
+              <View style={[
+                styles.inputWrapper, 
+                fieldErrors.username && styles.inputError,
+                username && !fieldErrors.username && styles.inputSuccess
+              ]}>
                 <Ionicons name="person-outline" size={20} color="#999" style={styles.inputIcon} />
                 <TextInput
-                  style={[styles.input, username ? styles.inputFocused : null]}
-                  placeholder="Username or Email"
+                  style={[styles.input]}
+                  placeholder="Tên đăng nhập hoặc Email"
                   placeholderTextColor="#999"
                   value={username}
-                  onChangeText={setUsername}
+                  onChangeText={(text) => {
+                    setUsername(text);
+                    // Real-time validation
+                    const errors = validateField('username', text);
+                    if (errors.username) {
+                      setFieldErrors(prev => ({ ...prev, username: errors.username }));
+                    } else {
+                      setFieldErrors(prev => ({ ...prev, username: null }));
+                    }
+                  }}
                   autoCapitalize="none"
                   autoCorrect={false}
                   returnKeyType="next"
                 />
+                {username && !fieldErrors.username && (
+                  <Ionicons name="checkmark-circle" size={20} color="#28A745" style={styles.successIcon} />
+                )}
               </View>
+              {fieldErrors.username && (
+                <View style={styles.fieldErrorContainer}>
+                  <Ionicons name="alert-circle-outline" size={12} color="#FF4757" />
+                  <Text style={styles.fieldErrorText}>{fieldErrors.username}</Text>
+                </View>
+              )}
             </View>
 
             {/* Password Input */}
             <View style={styles.inputContainer}>
-              <View style={styles.inputWrapper}>
+              <View style={[
+                styles.inputWrapper,
+                fieldErrors.password && styles.inputError,
+                password && !fieldErrors.password && styles.inputSuccess
+              ]}>
                 <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.inputIcon} />
                 <TextInput
-                  style={[styles.input, password ? styles.inputFocused : null]}
-                  placeholder="Password"
+                  style={[styles.input]}
+                  placeholder="Mật khẩu"
                   placeholderTextColor="#999"
                   secureTextEntry={!showPassword}
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    // Real-time validation
+                    const errors = validateField('password', text);
+                    if (errors.password) {
+                      setFieldErrors(prev => ({ ...prev, password: errors.password }));
+                    } else {
+                      setFieldErrors(prev => ({ ...prev, password: null }));
+                    }
+                  }}
                   returnKeyType="done"
                   onSubmitEditing={TestLogin}
                 />
@@ -149,7 +281,16 @@ const LoginScreen = () => {
                     color="#999" 
                   />
                 </TouchableOpacity>
+                {password && !fieldErrors.password && (
+                  <Ionicons name="checkmark-circle" size={20} color="#28A745" style={styles.successIcon} />
+                )}
               </View>
+              {fieldErrors.password && (
+                <View style={styles.fieldErrorContainer}>
+                  <Ionicons name="alert-circle-outline" size={12} color="#FF4757" />
+                  <Text style={styles.fieldErrorText}>{fieldErrors.password}</Text>
+                </View>
+              )}
             </View>
 
             {/* Login Button */}
@@ -166,10 +307,10 @@ const LoginScreen = () => {
               {loading ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color="#fff" />
-                  <Text style={styles.loadingText}>Signing in...</Text>
+                  <Text style={styles.loadingText}>Đang đăng nhập...</Text>
                 </View>
               ) : (
-                <Text style={styles.loginButtonText}>Sign In</Text>
+                <Text style={styles.loginButtonText}>Đăng nhập</Text>
               )}
             </TouchableOpacity>
 
@@ -178,7 +319,7 @@ const LoginScreen = () => {
               onPress={() => navigation.navigate('forgotpassword')}
               style={styles.forgotPasswordContainer}
             >
-              <Text style={styles.forgotPasswordText}>Forgot your password?</Text>
+              <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
             </TouchableOpacity>
           </View>
 
@@ -186,21 +327,21 @@ const LoginScreen = () => {
           <View style={styles.footerSection}>
             <View style={styles.dividerContainer}>
               <View style={styles.divider} />
-              <Text style={styles.dividerText}>or</Text>
+              <Text style={styles.dividerText}>hoặc</Text>
               <View style={styles.divider} />
             </View>
 
             <View style={styles.signupPrompt}>
-              <Text style={styles.signupText}>Don't have an account? </Text>
+              <Text style={styles.signupText}>Chưa có tài khoản? </Text>
               <TouchableOpacity onPress={() => navigation.navigate('signup')}>
-                <Text style={styles.signupLink}>Sign up</Text>
+                <Text style={styles.signupLink}>Đăng ký</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.partnerPrompt}>
-              <Text style={styles.partnerText}>Want to become a partner? </Text>
+              <Text style={styles.partnerText}>Muốn trở thành đối tác? </Text>
               <TouchableOpacity onPress={() => navigation.navigate('signupP')}>
-                <Text style={styles.partnerLink}>Join us</Text>
+                <Text style={styles.partnerLink}>Tham gia với chúng tôi</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -301,9 +442,28 @@ const styles = StyleSheet.create({
     color: '#1a1a1a',
     paddingVertical: 0,
   },
-  inputFocused: {
-    borderColor: '#007BFF',
-    backgroundColor: '#fff',
+  inputError: {
+    borderColor: '#FF4757',
+    backgroundColor: '#FFF5F5',
+  },
+  inputSuccess: {
+    borderColor: '#28A745',
+    backgroundColor: '#F0FFF4',
+  },
+  successIcon: {
+    marginLeft: 8,
+  },
+  fieldErrorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    marginLeft: 16,
+  },
+  fieldErrorText: {
+    color: '#FF4757',
+    fontSize: 12,
+    marginLeft: 4,
+    flex: 1,
   },
   eyeIcon: {
     padding: 4,

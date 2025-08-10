@@ -44,33 +44,33 @@ const SignUpScreenPartner = () => {
         const newErrors = {};
 
         if (!Username.trim()) {
-            newErrors.username = 'Business name is required';
+            newErrors.username = 'Tên doanh nghiệp là bắt buộc';
         } else if (Username.trim().length < 3) {
-            newErrors.username = 'Business name must be at least 3 characters';
+            newErrors.username = 'Tên doanh nghiệp phải có ít nhất 3 ký tự';
         }
 
         if (!Email.trim()) {
-            newErrors.email = 'Business email is required';
+            newErrors.email = 'Email doanh nghiệp là bắt buộc';
         } else if (!validateEmail(Email)) {
-            newErrors.email = 'Please enter a valid email address';
+            newErrors.email = 'Vui lòng nhập địa chỉ email hợp lệ';
         }
 
         if (!phonenumber.trim()) {
-            newErrors.phone = 'Business phone number is required';
+            newErrors.phone = 'Số điện thoại doanh nghiệp là bắt buộc';
         } else if (!validatePhone(phonenumber)) {
-            newErrors.phone = 'Please enter a valid phone number';
+            newErrors.phone = 'Vui lòng nhập số điện thoại hợp lệ';
         }
 
         if (!Password) {
-            newErrors.password = 'Password is required';
+            newErrors.password = 'Mật khẩu là bắt buộc';
         } else if (!validatePassword(Password)) {
-            newErrors.password = 'Password must be at least 6 characters';
+            newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
         }
 
         if (!ConfirmPassword) {
-            newErrors.confirmPassword = 'Please confirm your password';
+            newErrors.confirmPassword = 'Vui lòng xác nhận mật khẩu';
         } else if (Password !== ConfirmPassword) {
-            newErrors.confirmPassword = 'Passwords do not match';
+            newErrors.confirmPassword = 'Mật khẩu không khớp';
         }
 
         setErrors(newErrors);
@@ -101,28 +101,46 @@ const SignUpScreenPartner = () => {
 
             if (res.status >= 200 && res.status < 300) {
                 Alert.alert(
-                    "Welcome Partner!",
-                    "Your partner account has been created successfully. You can now start listing your properties.",
+                    "Chào mừng đối tác!",
+                    "Tài khoản đối tác của bạn đã được tạo thành công. Bây giờ bạn có thể bắt đầu đăng ký khách sạn của mình.",
                     [
                         {
-                            text: "Get Started",
+                            text: "Bắt đầu",
                             onPress: () => navigation.navigate('login')
                         }
                     ]
                 );
             } else {
-                Alert.alert("Error", "Failed to create partner account. Please try again.");
+                Alert.alert("Lỗi", "Không thể tạo tài khoản đối tác. Vui lòng thử lại.");
             }
         } catch (error) {
             console.log(error.response ? error.response.data : error.message);
 
             if (error.response) {
-                const message = error.response.data.message || "Unable to connect to server";
-                Alert.alert("Registration Failed", message);
+                const status = error.response.status;
+                let message = "Không thể kết nối đến máy chủ";
+                
+                switch (status) {
+                    case 400:
+                        message = "Thông tin không hợp lệ. Vui lòng kiểm tra lại.";
+                        break;
+                    case 409:
+                        message = "Email hoặc tên doanh nghiệp đã tồn tại. Vui lòng chọn thông tin khác.";
+                        break;
+                    case 422:
+                        message = "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.";
+                        break;
+                    case 500:
+                        message = "Lỗi máy chủ. Vui lòng thử lại sau.";
+                        break;
+                    default:
+                        message = error.response.data.message || "Không thể kết nối đến máy chủ";
+                }
+                Alert.alert("Đăng ký đối tác thất bại", message);
             } else if (error.request) {
-                Alert.alert("Network Error", "No response from server. Please check your connection.");
+                Alert.alert("Lỗi mạng", "Không có phản hồi từ máy chủ. Vui lòng kiểm tra kết nối mạng.");
             } else {
-                Alert.alert("Error", "An unexpected error occurred. Please try again.");
+                Alert.alert("Lỗi", "Đã xảy ra lỗi không mong muốn. Vui lòng thử lại.");
             }
         } finally {
             setLoading(false);
@@ -154,22 +172,22 @@ const SignUpScreenPartner = () => {
               </View>
             </View>
             
-            <Text style={styles.title}>Become a Partner</Text>
-            <Text style={styles.subtitle}>Start your hospitality business with us</Text>
+            <Text style={styles.title}>Trở thành đối tác</Text>
+            <Text style={styles.subtitle}>Bắt đầu kinh doanh khách sạn với chúng tôi</Text>
             
             {/* Partner Benefits */}
             <View style={styles.benefitsContainer}>
               <View style={styles.benefitItem}>
                 <Ionicons name="trending-up" size={16} color="#28A745" />
-                <Text style={styles.benefitText}>Increase bookings</Text>
+                <Text style={styles.benefitText}>Tăng đặt phòng</Text>
               </View>
               <View style={styles.benefitItem}>
                 <Ionicons name="globe-outline" size={16} color="#28A745" />
-                <Text style={styles.benefitText}>Global reach</Text>
+                <Text style={styles.benefitText}>Tiếp cận toàn cầu</Text>
               </View>
               <View style={styles.benefitItem}>
                 <Ionicons name="shield-checkmark" size={16} color="#28A745" />
-                <Text style={styles.benefitText}>Secure payments</Text>
+                <Text style={styles.benefitText}>Thanh toán an toàn</Text>
               </View>
             </View>
           </View>
@@ -182,7 +200,7 @@ const SignUpScreenPartner = () => {
                 <Ionicons name="business-outline" size={20} color="#999" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="Business/Hotel Name"
+                  placeholder="Tên doanh nghiệp/Khách sạn"
                   placeholderTextColor="#999"
                   value={Username}
                   onChangeText={(text) => {
@@ -207,7 +225,7 @@ const SignUpScreenPartner = () => {
                 <Ionicons name="mail-outline" size={20} color="#999" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="Business email address"
+                  placeholder="Email doanh nghiệp"
                   placeholderTextColor="#999"
                   value={Email}
                   onChangeText={(text) => {
@@ -233,7 +251,7 @@ const SignUpScreenPartner = () => {
                 <Ionicons name="call-outline" size={20} color="#999" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="Business phone number"
+                  placeholder="Số điện thoại doanh nghiệp"
                   placeholderTextColor="#999"
                   value={phonenumber}
                   onChangeText={(text) => {
@@ -257,7 +275,7 @@ const SignUpScreenPartner = () => {
                 <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="Password"
+                  placeholder="Mật khẩu"
                   placeholderTextColor="#999"
                   secureTextEntry={!showPassword}
                   value={Password}
@@ -291,7 +309,7 @@ const SignUpScreenPartner = () => {
                 <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="Confirm password"
+                  placeholder="Xác nhận mật khẩu"
                   placeholderTextColor="#999"
                   secureTextEntry={!showConfirmPassword}
                   value={ConfirmPassword}
@@ -323,12 +341,12 @@ const SignUpScreenPartner = () => {
             {/* Partner Terms */}
             <View style={styles.termsContainer}>
               <Text style={styles.termsText}>
-                By joining as a partner, you agree to our{' '}
-                <Text style={styles.termsLink}>Partner Agreement</Text>
+                Bằng việc tham gia với tư cách đối tác, bạn đồng ý với{' '}
+                <Text style={styles.termsLink}>Thỏa thuận đối tác</Text>
                 {', '}
-                <Text style={styles.termsLink}>Terms of Service</Text>
-                {' '}and{' '}
-                <Text style={styles.termsLink}>Privacy Policy</Text>
+                <Text style={styles.termsLink}>Điều khoản dịch vụ</Text>
+                {' '}và{' '}
+                <Text style={styles.termsLink}>Chính sách bảo mật</Text>
               </Text>
             </View>
 
@@ -342,10 +360,10 @@ const SignUpScreenPartner = () => {
               {loading ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color="#fff" />
-                  <Text style={styles.loadingText}>Creating partner account...</Text>
+                  <Text style={styles.loadingText}>Đang tạo tài khoản đối tác...</Text>
                 </View>
               ) : (
-                <Text style={styles.signupButtonText}>Become a Partner</Text>
+                <Text style={styles.signupButtonText}>Trở thành đối tác</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -353,16 +371,16 @@ const SignUpScreenPartner = () => {
           {/* Footer Section */}
           <View style={styles.footerSection}>
             <View style={styles.loginPrompt}>
-              <Text style={styles.loginText}>Already have an account? </Text>
+              <Text style={styles.loginText}>Đã có tài khoản? </Text>
               <TouchableOpacity onPress={() => navigation.navigate('login')}>
-                <Text style={styles.loginLink}>Sign in</Text>
+                <Text style={styles.loginLink}>Đăng nhập</Text>
               </TouchableOpacity>
             </View>
             
             <View style={styles.customerPrompt}>
-              <Text style={styles.customerText}>Looking to book hotels? </Text>
+              <Text style={styles.customerText}>Muốn đặt khách sạn? </Text>
               <TouchableOpacity onPress={() => navigation.navigate('signup')}>
-                <Text style={styles.customerLink}>Join as traveler</Text>
+                <Text style={styles.customerLink}>Tham gia với tư cách khách hàng</Text>
               </TouchableOpacity>
             </View>
           </View>

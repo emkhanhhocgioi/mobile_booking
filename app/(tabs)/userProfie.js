@@ -245,13 +245,21 @@ const ProfileScreen = () => {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await getUser(uid);
-    if (urole === USER_ROLES.PARTNER) {
-      await getUserPost(uid);
-    } else if (urole === USER_ROLES.CUSTOMER) {
-      await getUserHistory(uid);
+    try {
+      await getUser(uid);
+      if (urole === USER_ROLES.PARTNER) {
+        await getUserPost(uid);
+      } else if (urole === USER_ROLES.CUSTOMER) {
+        await getUserHistory(uid);
+      }
+      // Hiển thị thông báo thành công
+      Alert.alert('Success', 'Profile data refreshed successfully');
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      Alert.alert('Error', 'Failed to refresh data. Please try again.');
+    } finally {
+      setRefreshing(false);
     }
-    setRefreshing(false);
   }, [uid, urole]);
 
   useEffect(() => {
@@ -357,12 +365,25 @@ const ProfileScreen = () => {
           <Icon name="arrow-back" size={24} color="#1a1a1a" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile</Text>
-        <TouchableOpacity 
-          style={styles.settingsBtn}
-          onPress={() => setEditModalVisible(true)}
-        >
-          <Icon name="settings-outline" size={24} color="#1a1a1a" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity 
+            style={styles.refreshBtn}
+            onPress={onRefresh}
+            disabled={refreshing}
+          >
+            {refreshing ? (
+              <ActivityIndicator size="small" color="#4A90E2" />
+            ) : (
+              <Icon name="refresh-outline" size={24} color="#4A90E2" />
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.settingsBtn}
+            onPress={() => setEditModalVisible(true)}
+          >
+            <Icon name="settings-outline" size={24} color="#1a1a1a" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -419,6 +440,21 @@ const ProfileScreen = () => {
             >
               <Icon name="pencil-outline" size={16} color="#4A90E2" />
               <Text style={styles.editProfileText}>Edit Profile</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.refreshDataBtn}
+              onPress={onRefresh}
+              disabled={refreshing}
+            >
+              {refreshing ? (
+                <ActivityIndicator size="small" color="#28a745" />
+              ) : (
+                <Icon name="refresh-outline" size={16} color="#28a745" />
+              )}
+              <Text style={styles.refreshDataText}>
+                {refreshing ? 'Refreshing...' : 'Refresh Data'}
+              </Text>
             </TouchableOpacity>
             
             <TouchableOpacity style={styles.premiumBtn}>
@@ -725,7 +761,7 @@ const styles = StyleSheet.create({
   actionButtons: {
     flexDirection: 'row',
     width: '100%',
-    gap: 12,
+    gap: 8,
   },
   editProfileBtn: {
     flex: 1,
@@ -744,6 +780,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 6,
   },
+  refreshDataBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f8fff8',
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#28a745',
+  },
+  refreshDataText: {
+    color: '#28a745',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
   premiumBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -754,12 +807,26 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#FFD700',
+    minWidth: 100,
   },
   premiumText: {
     color: '#FFD700',
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 6,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  refreshBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 20,
+    backgroundColor: '#f8f9fa',
   },
   contentSection: {
     backgroundColor: '#fff',
