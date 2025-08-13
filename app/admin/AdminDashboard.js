@@ -1,6 +1,7 @@
 // Dashboard.js
+import axios from 'axios';
 import { useEffect, useState } from 'react';
-import { Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import HotelList from './HotelList';
 import OrderList from './OrderList';
@@ -18,11 +19,19 @@ const Dashboard = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [data, setData] = useState([]);
   const [listtype,setListtyep] = useState(0)
+  const [loading, setLoading] = useState(true);
+  const [connectionError, setConnectionError] = useState(false);
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalHotels: 0,
     totalOrders: 0,
     totalReviews: 0
+  });
+  const [additionalStats, setAdditionalStats] = useState({
+    hotelOwners: 0,
+    customers: 0,
+    pendingOrders: 0,
+    completedOrders: 0
   });
 
   const menuItems = [
@@ -35,17 +44,71 @@ const Dashboard = () => {
 
   const getStats = async () => {
     try {
-      // You can add API calls here to get actual statistics
-      // For now, using placeholder data
+      setLoading(true);
+      setConnectionError(false);
+      
+      // Fetch real data from all endpoints
+      const [usersResponse, hotelsResponse, ordersResponse, reviewsResponse] = await Promise.all([
+        axios.get(`${baseUrl}/api/admin/getuser`),
+        axios.get(`${baseUrl}/api/admin/gethotel`),
+        axios.get(`${baseUrl}/api/admin/getorder`),
+        axios.get(`${baseUrl}/api/admin/getreview`)
+      ]);
+
+      // Process user data for additional stats
+      const users = usersResponse.data || [];
+      const hotelOwners = users.filter(user => user.urole === '1' || user.urole === 1).length;
+      const customers = users.filter(user => user.urole === '0' || user.urole === 0).length;
+
+      // Process order data for status breakdown
+      const orders = ordersResponse.data || [];
+      const pendingOrders = orders.filter(order => 
+        order.orderStatus?.toLowerCase() === 'pending' || 
+        order.orderStatus?.toLowerCase() === 'confirmed'
+      ).length;
+      const completedOrders = orders.filter(order => 
+        order.orderStatus?.toLowerCase() === 'completed' || 
+        order.orderStatus?.toLowerCase() === 'finished'
+      ).length;
+
       setStats({
-        totalUsers: 150,
-        totalHotels: 75,
-        totalOrders: 320,
-        totalReviews: 89
+        totalUsers: users.length,
+        totalHotels: hotelsResponse.data?.length || 0,
+        totalOrders: orders.length,
+        totalReviews: reviewsResponse.data?.length || 0
       });
+
+      setAdditionalStats({
+        hotelOwners,
+        customers,
+        pendingOrders,
+        completedOrders
+      });
+
     } catch (error) {
       console.error('Error fetching stats:', error);
+      setConnectionError(true);
+      
+      // Fallback to zero data if API fails
+      setStats({
+        totalUsers: 0,
+        totalHotels: 0,
+        totalOrders: 0,
+        totalReviews: 0
+      });
+      setAdditionalStats({
+        hotelOwners: 0,
+        customers: 0,
+        pendingOrders: 0,
+        completedOrders: 0
+      });
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const handleRefreshStats = async () => {
+    await getStats();
   };
 
   useEffect(() => {
@@ -71,29 +134,97 @@ const Dashboard = () => {
 
   const renderDashboardOverview = () => (
     <View style={styles.overviewContainer}>
-      <Text style={styles.welcomeText}>Welcome to Admin Dashboard</Text>
-      <Text style={styles.subtitleText}>Manage your hotel booking platform</Text>
+      <View style={styles.dashboardHeader}>
+        <View>
+          <Text style={styles.welcomeText}>Welcome to Admin Dashboard</Text>
+          <Text style={styles.subtitleText}>
+            {connectionError 
+              ? 'Unable to connect to server' 
+              : 'Manage your hotel booking platform'
+            }
+          </Text>
+          {connectionError && (
+            <Text style={styles.errorText}>
+              Make sure your backend server is running on {baseUrl}
+            </Text>
+          )}
+        </View>
+        <TouchableOpacity 
+          style={[styles.refreshButton, connectionError && styles.refreshButtonError]} 
+          onPress={handleRefreshStats}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Icon name="refresh" size={24} color="#fff" />
+          )}
+        </TouchableOpacity>
+      </View>
       
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
           <Icon name="people" size={30} color="#4CAF50" />
-          <Text style={styles.statNumber}>{stats.totalUsers}</Text>
+          <Text style={styles.statNumber}>
+            {loading ? '...' : stats.totalUsers}
+          </Text>
           <Text style={styles.statLabel}>Total Users</Text>
         </View>
         <View style={styles.statCard}>
           <Icon name="hotel" size={30} color="#2196F3" />
-          <Text style={styles.statNumber}>{stats.totalHotels}</Text>
+          <Text style={styles.statNumber}>
+            {loading ? '...' : stats.totalHotels}
+          </Text>
           <Text style={styles.statLabel}>Hotels</Text>
         </View>
         <View style={styles.statCard}>
           <Icon name="shopping-cart" size={30} color="#FF9800" />
-          <Text style={styles.statNumber}>{stats.totalOrders}</Text>
+          <Text style={styles.statNumber}>
+            {loading ? '...' : stats.totalOrders}
+          </Text>
           <Text style={styles.statLabel}>Orders</Text>
         </View>
         <View style={styles.statCard}>
           <Icon name="star" size={30} color="#9C27B0" />
-          <Text style={styles.statNumber}>{stats.totalReviews}</Text>
+          <Text style={styles.statNumber}>
+            {loading ? '...' : stats.totalReviews}
+          </Text>
           <Text style={styles.statLabel}>Reviews</Text>
+        </View>
+      </View>
+
+      {/* Additional Statistics */}
+      <View style={styles.additionalStatsContainer}>
+        <Text style={styles.sectionTitle}>Detailed Analytics</Text>
+        <View style={styles.additionalStatsGrid}>
+          <View style={styles.additionalStatCard}>
+            <Icon name="business" size={24} color="#2196F3" />
+            <Text style={styles.additionalStatNumber}>
+              {loading ? '...' : additionalStats.hotelOwners}
+            </Text>
+            <Text style={styles.additionalStatLabel}>Hotel Owners</Text>
+          </View>
+          <View style={styles.additionalStatCard}>
+            <Icon name="person" size={24} color="#4CAF50" />
+            <Text style={styles.additionalStatNumber}>
+              {loading ? '...' : additionalStats.customers}
+            </Text>
+            <Text style={styles.additionalStatLabel}>Customers</Text>
+          </View>
+          <View style={styles.additionalStatCard}>
+            <Icon name="schedule" size={24} color="#FF9800" />
+            <Text style={styles.additionalStatNumber}>
+              {loading ? '...' : additionalStats.pendingOrders}
+            </Text>
+            <Text style={styles.additionalStatLabel}>Pending Orders</Text>
+          </View>
+          <View style={styles.additionalStatCard}>
+            <Icon name="check-circle" size={24} color="#4CAF50" />
+            <Text style={styles.additionalStatNumber}>
+              {loading ? '...' : additionalStats.completedOrders}
+            </Text>
+            <Text style={styles.additionalStatLabel}>Completed Orders</Text>
+          </View>
         </View>
       </View>
 
@@ -233,6 +364,25 @@ const styles = StyleSheet.create({
     padding: 24,
     flex: 1,
   },
+  dashboardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 32,
+  },
+  refreshButton: {
+    backgroundColor: '#1a237e',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
   welcomeText: {
     fontSize: 32,
     fontWeight: 'bold',
@@ -242,7 +392,7 @@ const styles = StyleSheet.create({
   subtitleText: {
     fontSize: 16,
     color: '#666',
-    marginBottom: 32,
+    marginBottom: 0,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -343,6 +493,49 @@ const styles = StyleSheet.create({
   modalScrollView: {
     flex: 1,
     padding: 16,
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#f44336',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  refreshButtonError: {
+    backgroundColor: '#f44336',
+  },
+  additionalStatsContainer: {
+    marginBottom: 32,
+  },
+  additionalStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  additionalStatCard: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    width: '23%',
+    minWidth: 120,
+    marginBottom: 12,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  additionalStatNumber: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 8,
+  },
+  additionalStatLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+    textAlign: 'center',
   },
 });
 
