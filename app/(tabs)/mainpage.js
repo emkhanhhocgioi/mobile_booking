@@ -248,11 +248,16 @@ const MainPage = () => {
     setScreenType(4)
   }
 
+  const handleReloadData = async () => {
+    await fetch10Post();
+  };
+
   const iconButtons = [
     { name: 'earth', label: 'Explore', action: handleDestExplore, color: '#4CAF50' },
     { name: 'triangle-outline', label: 'Destinations', action: handleDestPress, color: '#FF6B6B' },
     { name: 'search-sharp', label: 'Search', action: handleSort, color: '#3498DB' },
     { name: 'happy-outline', label: 'AI Chat', action: handleChatBox, color: '#9B59B6' },
+    { name: 'refresh', label: 'Reload', action: handleReloadData, color: '#FF9500' },
   ];
 
   
