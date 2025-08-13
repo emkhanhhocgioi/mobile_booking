@@ -87,12 +87,6 @@ try {
   await newtk.save();
 
  
-  const newSubscript = new Subscript({
-      Userid: newtk._id,  
-      status: 0,
-      signupdate: new Date(),
-      expiredate: new Date(),
-  });
 
 
   await newSubscript.save();
@@ -103,6 +97,7 @@ try {
   return res.status(500).json({ message: 'Server error' });
 }
 };
+
 
 
 const login = async (req, res) => {

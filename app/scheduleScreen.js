@@ -491,7 +491,7 @@ const ScheduleScreen = () => {
                     startingValue={rating}
                     imageSize={30}
                     style={styles.rating}
-                    ratingColor="#FFD700"
+                    ratingColor="#0a0a0aff"
                     tintColor="#fff"
                   />
                 </View>
@@ -777,6 +777,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   sectionLabel: {
+    
     fontSize: 16,
     fontWeight: '600',
     color: '#333',

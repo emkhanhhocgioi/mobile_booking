@@ -1,6 +1,6 @@
 import { useRoute } from '@react-navigation/native';
 import axios from 'axios';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -27,52 +27,55 @@ if (Platform.OS === "android") {
 const SubscriptionScreen = () => {
   const route = useRoute();
   const uid = route.params.uid;
-  const [selectedPlan, setSelectedPlan] = useState('basic');
-  const [selectedPrice, setSelectedPrice] = useState('20.00');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [paymentUri, setPaymentUri] = useState('');
   const [loading, setLoading] = useState(false);
+  const [subscriptionStatus, setSubscriptionStatus] = useState(null);
 
-  const plans = [
-    {
-      id: 'basic',
-      name: 'Basic Plan',
-      features: ['Post up to 5 hotels', 'Basic analytics', 'Email support'],
-      color: '#4CAF50',
-      icon: 'business'
-    },
-    {
-      id: 'standard',
-      name: 'Standard Plan',
-      features: ['Post up to 20 hotels', 'Advanced analytics', 'Priority support', 'Featured listings'],
-      color: '#2196F3',
-      icon: 'business-center'
-    },
-    {
-      id: 'premium',
-      name: 'Premium Plan',
-      features: ['Unlimited hotels', 'Premium analytics', '24/7 support', 'Top featured listings', 'Custom branding'],
-      color: '#FF9800',
-      icon: 'star'
+  // Single plan for 30 days
+  const plan = {
+    id: 'premium',
+    name: 'Premium Plan',
+    duration: '30 Days',
+    price: '29.99',
+    features: [
+      'Unlimited hotel postings',
+      'Advanced analytics dashboard', 
+      'Priority customer support',
+      'Featured listings priority',
+      'Custom branding options',
+      'Real-time booking notifications'
+    ],
+    color: '#4CAF50',
+    icon: 'star'
+  };
+
+  // Check subscription status on component mount
+  useEffect(() => {
+    checkSubscriptionStatus();
+  }, []);
+
+  const checkSubscriptionStatus = async () => {
+    try {
+      const res = await axios.get(`${baseUrl}/api/check-subscription/${uid}`);
+      if (res.data.hasActiveSubscription) {
+        setSubscriptionStatus(res.data.subscription);
+      }
+    } catch (error) {
+      console.log('Error checking subscription:', error);
     }
-  ];
-
-  const durations = [
-    { label: '1 Month', price: '20.00', savings: null },
-    { label: '3 Months', price: '50.00', savings: '17%' },
-    { label: '6 Months', price: '100.00', savings: '17%' },
-    { label: '1 Year', price: '180.00', savings: '25%' }
-  ];
+  };
 
   const handleSubmit = async () => {
-    if (!selectedPlan) {
-      alert('Please select a plan');
+    if (subscriptionStatus) {
+      alert('You already have an active subscription. Please wait until it expires.');
       return;
     }
 
     const data = {
-      plan: selectedPlan,
-      price: selectedPrice,
+      userid: uid,
+      price: plan.price,
+      platform: Platform.OS === 'web' ? 'web' : Platform.OS === 'ios' ? 'ios' : 'android'
     };
 
     try {
@@ -94,30 +97,30 @@ const SubscriptionScreen = () => {
       }
     } catch (error) {
       console.log('Error:', error);
-      alert('Payment initialization failed. Please try again.');
+      if (error.response?.status === 400) {
+        alert(error.response.data.error);
+      } else {
+        alert('Payment initialization failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const renderPlanCard = (plan) => (
-    <TouchableOpacity
-      key={plan.id}
-      style={[
-        styles.planCard,
-        selectedPlan === plan.id && styles.selectedPlanCard,
-        { borderColor: plan.color }
-      ]}
-      onPress={() => setSelectedPlan(plan.id)}
-    >
+  const renderPlanCard = () => (
+    <View style={[styles.planCard, { borderColor: plan.color }]}>
       <View style={styles.planHeader}>
         <View style={[styles.planIcon, { backgroundColor: plan.color }]}>
           <Icon name={plan.icon} size={24} color="#fff" />
         </View>
-        <Text style={styles.planName}>{plan.name}</Text>
-        {selectedPlan === plan.id && (
-          <Icon name="check-circle" size={24} color={plan.color} />
-        )}
+        <View style={styles.planInfo}>
+          <Text style={styles.planName}>{plan.name}</Text>
+          <Text style={styles.planDuration}>{plan.duration}</Text>
+        </View>
+        <View style={styles.priceContainer}>
+          <Text style={styles.planPrice}>${plan.price}</Text>
+          <Text style={styles.priceLabel}>USD</Text>
+        </View>
       </View>
       
       <View style={styles.planFeatures}>
@@ -128,56 +131,50 @@ const SubscriptionScreen = () => {
           </View>
         ))}
       </View>
-    </TouchableOpacity>
+    </View>
   );
 
-  const renderDurationCard = (duration) => (
-    <TouchableOpacity
-      key={duration.price}
-      style={[
-        styles.durationCard,
-        selectedPrice === duration.price && styles.selectedDurationCard
-      ]}
-      onPress={() => setSelectedPrice(duration.price)}
-    >
-      <View style={styles.durationHeader}>
-        <Text style={styles.durationLabel}>{duration.label}</Text>
-        {duration.savings && (
-          <View style={styles.savingsBadge}>
-            <Text style={styles.savingsText}>Save {duration.savings}</Text>
-          </View>
-        )}
+  const renderSubscriptionStatus = () => {
+    if (!subscriptionStatus) return null;
+    
+    const expireDate = new Date(subscriptionStatus.expiredate);
+    const isExpired = expireDate < new Date();
+    
+    return (
+      <View style={[styles.statusCard, isExpired ? styles.expiredCard : styles.activeCard]}>
+        <Icon 
+          name={isExpired ? "error" : "check-circle"} 
+          size={24} 
+          color={isExpired ? "#f44336" : "#4CAF50"} 
+        />
+        <View style={styles.statusInfo}>
+          <Text style={styles.statusTitle}>
+            {isExpired ? "Subscription Expired" : "Active Subscription"}
+          </Text>
+          <Text style={styles.statusDate}>
+            {isExpired ? "Expired on" : "Valid until"}: {expireDate.toLocaleDateString()}
+          </Text>
+        </View>
       </View>
-      <Text style={styles.durationPrice}>${duration.price}</Text>
-      {selectedPrice === duration.price && (
-        <Icon name="radio-button-checked" size={20} color="#4CAF50" style={styles.radioIcon} />
-      )}
-    </TouchableOpacity>
-  );
+    );
+  };
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header */}
       <View style={styles.header}>
         <Icon name="business" size={32} color="#2196F3" />
-        <Text style={styles.title}>Choose Your Plan</Text>
-        <Text style={styles.subtitle}>Upgrade to unlock premium features for your business</Text>
+        <Text style={styles.title}>Premium Subscription</Text>
+        <Text style={styles.subtitle}>Unlock all premium features for your business</Text>
       </View>
 
-      {/* Plans Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Select a Plan</Text>
-        <View style={styles.plansContainer}>
-          {plans.map(renderPlanCard)}
-        </View>
-      </View>
+      {/* Subscription Status */}
+      {renderSubscriptionStatus()}
 
-      {/* Duration Section */}
+      {/* Plan Section */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Choose Duration</Text>
-        <View style={styles.durationsContainer}>
-          {durations.map(renderDurationCard)}
-        </View>
+        <Text style={styles.sectionTitle}>Premium Plan - 30 Days</Text>
+        {renderPlanCard()}
       </View>
 
       {/* Payment Method Section */}
@@ -198,27 +195,26 @@ const SubscriptionScreen = () => {
         <Text style={styles.summaryTitle}>Order Summary</Text>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Plan:</Text>
-          <Text style={styles.summaryValue}>
-            {plans.find(p => p.id === selectedPlan)?.name}
-          </Text>
+          <Text style={styles.summaryValue}>{plan.name}</Text>
         </View>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Duration:</Text>
-          <Text style={styles.summaryValue}>
-            {durations.find(d => d.price === selectedPrice)?.label}
-          </Text>
+          <Text style={styles.summaryValue}>{plan.duration}</Text>
         </View>
         <View style={[styles.summaryRow, styles.totalRow]}>
           <Text style={styles.totalLabel}>Total:</Text>
-          <Text style={styles.totalValue}>${selectedPrice} USD</Text>
+          <Text style={styles.totalValue}>${plan.price} USD</Text>
         </View>
       </View>
 
       {/* Subscribe Button */}
       <TouchableOpacity 
-        style={[styles.subscribeButton, loading && styles.subscribeButtonDisabled]} 
+        style={[
+          styles.subscribeButton, 
+          (loading || subscriptionStatus) && styles.subscribeButtonDisabled
+        ]} 
         onPress={handleSubmit}
-        disabled={loading}
+        disabled={loading || subscriptionStatus}
       >
         {loading ? (
           <ActivityIndicator size="small" color="#fff" />
@@ -226,7 +222,8 @@ const SubscriptionScreen = () => {
           <Icon name="payment" size={24} color="#fff" />
         )}
         <Text style={styles.subscribeButtonText}>
-          {loading ? 'Processing...' : 'Subscribe Now'}
+          {loading ? 'Processing...' : 
+           subscriptionStatus ? 'Already Subscribed' : 'Subscribe Now'}
         </Text>
       </TouchableOpacity>
 
@@ -366,11 +363,63 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
+  planInfo: {
+    flex: 1,
+  },
   planName: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
+  },
+  planDuration: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 2,
+  },
+  priceContainer: {
+    alignItems: 'flex-end',
+  },
+  planPrice: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#4CAF50',
+  },
+  priceLabel: {
+    fontSize: 12,
+    color: '#666',
+  },
+  statusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 12,
+    elevation: 1,
+  },
+  activeCard: {
+    backgroundColor: '#e8f5e8',
+    borderColor: '#4CAF50',
+    borderWidth: 1,
+  },
+  expiredCard: {
+    backgroundColor: '#ffebee',
+    borderColor: '#f44336',
+    borderWidth: 1,
+  },
+  statusInfo: {
+    marginLeft: 12,
     flex: 1,
+  },
+  statusTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  statusDate: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 2,
   },
   planFeatures: {
     gap: 8,
