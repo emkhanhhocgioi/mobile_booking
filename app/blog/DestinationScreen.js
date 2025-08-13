@@ -1,14 +1,14 @@
-import React ,{useState,useEffect} from 'react';
+import axios from 'axios';
+import { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
+  Alert,
   FlatList,
   Image,
+  Platform,
   StyleSheet,
-  TouchableOpacity,Alert,Platform
+  Text,
+  View
 } from 'react-native';
-import axios from 'axios';
 
 let baseUrl = "http://localhost:5000";
 if (Platform.OS === "android") {
@@ -36,7 +36,7 @@ const DestinationScreen = () => {
 
   const renderItem = ({ item }) => (
     <View style={styles.card}>
-      <Image source={{ uri: `${baseUrl}${item.img}` }} style={styles.image} />
+      <Image source={{ uri: item.img }} style={styles.image} />
       <View style={styles.info}>
         
         <Text style={styles.city}>{item.destname}</Text>

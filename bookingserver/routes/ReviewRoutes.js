@@ -1,7 +1,7 @@
 
 const express = require('express')
 const routerReview = express.Router();
-const {createReview,renderReviewIamge,renderReview} = require('../Controller/ReviewController') ;
+const {createReview,renderReviewIamge,renderReview,getAverageRating} = require('../Controller/ReviewController') ;
 const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
 require('dotenv').config();
@@ -32,6 +32,7 @@ const upload = multer({
 });
 routerReview.get('/renderReviewImg',renderReviewIamge)
 routerReview.get('/renderReview',renderReview)
+routerReview.get('/getAverageRating',getAverageRating)
 
 
 module.exports = routerReview;

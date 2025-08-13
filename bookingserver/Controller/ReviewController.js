@@ -52,11 +52,23 @@ const createReview = async (req, res) => {
         });
 
         const savedReview = await doc.save();
+        
+        // Get reviewer name to include in response
+        const reviewerName = await getUsernameById(reviewerId);
       
         return res.status(201).json({
             success: true,
             message: 'Review created successfully',
-            imageUrls: imageUrls
+            imageUrls: imageUrls,
+            review: {
+                rvid: savedReview._id,
+                HotelID: savedReview.HotelID,
+                ReviewerID: savedReview.ReviewerID,
+                reviewerName: reviewerName,
+                reviewcontent: savedReview.reviewcontent,
+                rating: savedReview.rating,
+                imgArr: savedReview.images || []
+            }
         });
     } catch (error) {
         console.error(error);
@@ -107,7 +119,7 @@ const renderReview = async (req, res) => {
 const getUsernameById = async (userId) => {
     try {
         const user = await User.findById(userId);
-        return user ? user.username : 'Unknown User';
+        return user ? user.Username : 'Unknown User';
     } catch (error) {
         console.error('Error fetching user:', error);   
         return 'Unknown User';
@@ -143,7 +155,38 @@ const renderReviewIamge = async (req, res) => {
         return res.status(500).json({ error: 'Internal server error', details: error.message });
     }
 };
+
+const getAverageRating = async (req, res) => {
+    const { hotelid } = req.query;
+    
+    if (!hotelid) {
+        return res.status(400).json({ message: 'Hotel ID is required' });
+    }
+    
+    try {
+        const reviews = await Review.find({ HotelID: hotelid });
+        
+        if (!reviews || reviews.length === 0) {
+            return res.status(200).json({ 
+                averageRating: 0, 
+                totalReviews: 0 
+            });
+        }
+        
+        const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+        const averageRating = totalRating / reviews.length;
+        
+        return res.status(200).json({
+            averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal place
+            totalReviews: reviews.length
+        });
+        
+    } catch (error) {
+        console.error('Error calculating average rating:', error);
+        return res.status(500).json({ error: 'Internal server error', details: error.message });
+    }
+};
   
 
 
-  module.exports = {createReview,renderReviewIamge,renderReview}
+  module.exports = {createReview,renderReviewIamge,renderReview,getAverageRating}

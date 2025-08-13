@@ -147,12 +147,12 @@ const renderReview = async () => {
 };
 const getReviewrating = async ()=>{
      try {
-      const res = await axios.get(`${baseUrl}/api/countRating`, {
+      const res = await axios.get(`${baseUrl}/api/review/getAverageRating`, {
         headers: { 'Content-Type': 'application/json' },
-        params: { postid: hotelData.PostID || '' },
+        params: { hotelid: hotelData.PostID || '' },
       });
       console.log(res.data)
-      SetRating(res.data)
+      SetRating(res.data.averageRating || 0)
      } catch (error) {
       console.log(error);
      }
@@ -187,10 +187,10 @@ useEffect(() => {
           >
             <View style={styles.reviewerInfo}>
               <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>{item.ReviewerID.charAt(0).toUpperCase()}</Text>
+                <Text style={styles.avatarText}>{item.reviewerName ? item.reviewerName.charAt(0).toUpperCase() : item.ReviewerID.charAt(0).toUpperCase()}</Text>
               </View>
               <View style={styles.reviewerDetails}>
-                <Text style={styles.reviewerName}>{item.ReviewerID}</Text>
+                <Text style={styles.reviewerName}>{item.reviewerName || item.ReviewerID}</Text>
                 <View style={styles.ratingStars}>
                   {[1,2,3,4,5].map((star) => (
                     <Ionicons 
@@ -334,11 +334,13 @@ useEffect(() => {
           <View style={styles.quickStats}>
             <View style={styles.statItem}>
               <Ionicons name="star" size={20} color="#FFD700" />
-              <Text style={styles.statText}>{rating || 'New'}</Text>
+              <Text style={styles.statText}>{rating > 0 ? rating : 'New'}</Text>
             </View>
             <View style={styles.statItem}>
               <Ionicons name="chatbubble-outline" size={18} color="#666" />
-              <Text style={styles.statText}>{reviewData.length} reviews</Text>
+              <Text style={styles.statText}>
+                {reviewData.length > 0 ? `${reviewData.length} reviews` : 'No reviews yet'}
+              </Text>
             </View>
             <View style={styles.statItem}>
               <Ionicons name="restaurant-outline" size={18} color="#666" />

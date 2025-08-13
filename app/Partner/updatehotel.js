@@ -30,8 +30,8 @@ const UpdatePost = ({ data, navigation, onClose }) => {
   const getFormCompletionPercentage = () => {
     const requiredFields = [hotelName, address, price, city, country, description];
     const filledFields = requiredFields.filter(field => field && field.trim()).length;
-    const totalImages = originalImages.length + selectedImages.length;
-    const imageScore = totalImages > 0 ? 1 : 0;
+    // Chỉ tính ảnh mới được chọn, không tính ảnh cũ
+    const imageScore = selectedImages.length > 0 ? 1 : 0;
     return Math.round(((filledFields + imageScore) / (requiredFields.length + 1)) * 100);
   };
   
@@ -268,10 +268,10 @@ const MOCK_DESTINATIONS = {
         return;
       }
 
-      const totalImages = originalImages.length + selectedImages.length;
+      // Chỉ tính ảnh mới, không tính ảnh cũ
+      const totalImages = selectedImages.length;
       const remainingSlots = 4 - totalImages;
       console.log('📊 Image slots calculation:', {
-        originalImages: originalImages.length,
         selectedImages: selectedImages.length,
         totalImages: totalImages,
         remainingSlots: remainingSlots
@@ -279,7 +279,7 @@ const MOCK_DESTINATIONS = {
       
       if (remainingSlots <= 0) {
         console.log('❌ Image limit reached');
-        Alert.alert('Limit reached', 'You can only have up to 4 images total.');
+        Alert.alert('Limit reached', 'You can only select up to 4 new images.');
         return;
       }
 
@@ -361,9 +361,9 @@ const MOCK_DESTINATIONS = {
         return;
       }
 
-      const totalImages = originalImages.length + selectedImages.length;
+      // Chỉ tính ảnh mới, không tính ảnh cũ
+      const totalImages = selectedImages.length;
       console.log('📊 Image count check:', {
-        originalImages: originalImages.length,
         selectedImages: selectedImages.length,
         totalImages: totalImages,
         limitReached: totalImages >= 4
@@ -371,7 +371,7 @@ const MOCK_DESTINATIONS = {
       
       if (totalImages >= 4) {
         console.log('❌ Image limit reached');
-        Alert.alert('Limit reached', 'You can only have up to 4 images total.');
+        Alert.alert('Limit reached', 'You can only select up to 4 new images.');
         return;
       }
 
@@ -596,15 +596,9 @@ const MOCK_DESTINATIONS = {
         formdata.append('describe', description);
         formdata.append('addon', addon);
   
-        // Send existing image count to help server maintain proper image array
-        const validOriginalImages = originalImages.filter(img => img.uri && img.uri.trim() !== '');
-        formdata.append('existingImageCount', validOriginalImages.length.toString());
+        // NOTE: Server sẽ XÓA TẤT CẢ ảnh cũ và chỉ lưu ảnh mới
+        // Không cần gửi thông tin ảnh cũ
         
-        // Send valid existing image URLs
-        validOriginalImages.forEach((img, index) => {
-          formdata.append(`existingImage_${index}`, img.uri);
-        });
-  
         console.log('📋 Basic fields added:', {
           PostID: postid,
           HotelName: hotelName,
@@ -614,22 +608,25 @@ const MOCK_DESTINATIONS = {
           country: country,
           describe: description.substring(0, 50) + '...',
           addon: addon.substring(0, 30) + '...',
-          existingImageCount: validOriginalImages.length
+          originalImagesWillBeDeleted: originalImages.length
         });
   
         // Image processing phase
         console.log('🖼️ IMAGE PROCESSING PHASE');
-        console.log('Original images count:', originalImages.length);
-        console.log('Valid original images count:', validOriginalImages.length);
-        console.log('Selected new images count:', selectedImages.length);
-        console.log('Selected images details:', selectedImages.map(img => ({
+        console.log('Current hotel has', originalImages.length, 'existing images (will be deleted)');
+        console.log('Selected new images count (will be uploaded):', selectedImages.length);
+        console.log('⚠️ NOTE: Server will DELETE ALL old images and upload ONLY new ones');
+        
+        // CHỈ GỬI ẢNH MỚI - Server sẽ xóa tất cả ảnh cũ
+        console.log('Selected images details:', selectedImages.map((img, idx) => ({
+          index: idx,
           fileName: img.fileName,
           mimeType: img.mimeType,
           hasUri: !!img.uri,
-          isOld: img.isOld
+          isNew: true
         })));
-  
-        // Append only new images (selectedImages) to form data
+
+        // Append only NEW images to form data
         let imageCount = 0;
         
         // Helper function to convert base64 to Blob (for web)
@@ -648,9 +645,10 @@ const MOCK_DESTINATIONS = {
           }
         };
         
+        // Xử lý chỉ ảnh MỚI - Server sẽ xóa tất cả ảnh cũ
         selectedImages.forEach((image, index) => {
           if (image.uri && image.uri.trim() !== '') {
-            console.log(`📸 Adding image ${index + 1}:`, {
+            console.log(`📸 Adding NEW image ${index + 1}:`, {
               fileName: image.fileName,
               mimeType: image.mimeType,
               type: image.type,
@@ -694,7 +692,8 @@ const MOCK_DESTINATIONS = {
           }
         });
         
-        console.log(`✅ Total images added to FormData: ${imageCount}`);
+        console.log(`✅ Total NEW images added to FormData: ${imageCount}`);
+        console.log(`⚠️ NOTE: Server will DELETE ${originalImages.length} old images and upload ${imageCount} new ones (${originalImages.length} old images will be permanently lost)`);
         
         // Debug: Let's inspect the FormData
         console.log('🔍 FORMDATA INSPECTION:');
@@ -800,17 +799,19 @@ const MOCK_DESTINATIONS = {
     return flatCities.length > 0 ? flatCities : [];
   };
 
-  // Enhanced image picker component
+  // Enhanced image picker component - CHỈ HIỂN THỊ ẢNH MỚI
   const renderImagePicker = () => {
     const isWeb = Platform.OS === 'web';
-    const totalImages = originalImages.length + selectedImages.length;
+    // Chỉ tính ảnh mới được chọn
+    const totalImages = selectedImages.length;
     
     return (
       <View style={styles.imagePickerContainer}>
         <View style={styles.imagePickerHeader}>
           <View style={styles.labelContainer}>
             <Ionicons name="images-outline" size={20} color="#3498db" />
-            <Text style={styles.label}>Hotel Images</Text>
+            <Text style={styles.label}>New Hotel Images</Text>
+            <Text style={styles.imageNote}>(Will replace all existing images)</Text>
           </View>
           <View style={styles.imageCounter}>
             <Text style={styles.imageCounterText}>{totalImages}/4</Text>
@@ -822,8 +823,10 @@ const MOCK_DESTINATIONS = {
             <View style={styles.uploadIconContainer}>
               <Ionicons name="cloud-upload-outline" size={60} color="#3498db" />
             </View>
-            <Text style={styles.emptyImageText}>Upload Hotel Photos</Text>
-            <Text style={styles.emptyImageSubtext}>Add up to 4 high-quality images of your hotel</Text>
+            <Text style={styles.emptyImageText}>Upload New Hotel Photos</Text>
+            <Text style={styles.emptyImageSubtext}>
+              Select up to 4 new images to replace all existing hotel photos
+            </Text>
             
             <View style={styles.uploadButtonsContainer}>
               {!isWeb && (
@@ -850,31 +853,7 @@ const MOCK_DESTINATIONS = {
         ) : (
           <View>
             <View style={[styles.imageGrid, isWeb && styles.imageGridWeb]}>
-              {/* Render original images */}
-              {originalImages.map((image, index) => (
-                <View key={`old-${index}`} style={[styles.imagePreview, isWeb && styles.imagePreviewWeb]}>
-                  <Image source={{ uri: image.uri }} style={[styles.previewImage, isWeb && styles.previewImageWeb]} />
-                  <TouchableOpacity 
-                    style={styles.removeImageButton} 
-                    onPress={() => removeOriginalImage(index)}
-                  >
-                    <Ionicons name="close" size={16} color="white" />
-                  </TouchableOpacity>
-                  <View style={styles.imageIndex}>
-                    <Text style={styles.imageIndexText}>{index + 1}</Text>
-                  </View>
-                  <View style={styles.imageActions}>
-                    <TouchableOpacity style={styles.actionButton} onPress={() => viewImage(image.uri)}>
-                      <Ionicons name="eye" size={16} color="#2980b9" />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.actionButton} onPress={() => replaceOriginalImage(index)}>
-                      <Ionicons name="swap-horizontal" size={16} color="#27ae60" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))}
-              
-              {/* Render new selected images */}
+              {/* CHỈ HIỂN THỊ ẢNH MỚI ĐƯỢC CHỌN - KHÔNG HIỂN THỊ ẢNH CŨ */}
               {selectedImages.map((image, index) => (
                 <View key={`new-${index}`} style={[styles.imagePreview, isWeb && styles.imagePreviewWeb]}>
                   <Image source={{ uri: image.uri }} style={[styles.previewImage, isWeb && styles.previewImageWeb]} />
@@ -885,7 +864,7 @@ const MOCK_DESTINATIONS = {
                     <Ionicons name="close" size={16} color="white" />
                   </TouchableOpacity>
                   <View style={styles.imageIndex}>
-                    <Text style={styles.imageIndexText}>{originalImages.length + index + 1}</Text>
+                    <Text style={styles.imageIndexText}>{index + 1}</Text>
                   </View>
                   <View style={styles.imageActions}>
                     <TouchableOpacity style={styles.actionButton} onPress={() => viewImage(image.uri)}>
@@ -930,12 +909,11 @@ const MOCK_DESTINATIONS = {
                   style={styles.clearAllButton} 
                   onPress={() => {
                     Alert.alert(
-                      'Clear All Images',
-                      'Are you sure you want to remove all images?',
+                      'Clear All New Images',
+                      'Are you sure you want to remove all selected new images?',
                       [
                         { text: 'Cancel', style: 'cancel' },
                         { text: 'Clear All', style: 'destructive', onPress: () => {
-                          setOriginalImages([]);
                           setSelectedImages([]);
                         }}
                       ]
@@ -943,7 +921,7 @@ const MOCK_DESTINATIONS = {
                   }}
                 >
                   <Ionicons name="trash-outline" size={16} color="#e74c3c" />
-                  <Text style={styles.clearAllText}>Clear All</Text>
+                  <Text style={styles.clearAllText}>Clear New Images</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -951,10 +929,11 @@ const MOCK_DESTINATIONS = {
         )}
         
         <View style={styles.imageUploadTips}>
-          <Text style={styles.tipsTitle}>📷 Photo Tips:</Text>
+          <Text style={styles.tipsTitle}>⚠️ Important Notice:</Text>
+          <Text style={styles.tipsText}>• All existing hotel images will be permanently deleted</Text>
+          <Text style={styles.tipsText}>• Only the new images you select will be saved</Text>
           <Text style={styles.tipsText}>• Use high-resolution images (minimum 1200x800)</Text>
-          <Text style={styles.tipsText}>• Show different angles and amenities</Text>
-          <Text style={styles.tipsText}>• Ensure good lighting for best results</Text>
+          <Text style={styles.tipsText}>• Show different angles and amenities for best results</Text>
         </View>
       </View>
     );
@@ -1232,6 +1211,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#2d3748',
     marginLeft: 8,
+  },
+  imageNote: {
+    fontSize: 12,
+    color: '#e74c3c',
+    marginLeft: 8,
+    fontStyle: 'italic',
+    fontWeight: '500',
   },
   input: {
     backgroundColor: '#fff',

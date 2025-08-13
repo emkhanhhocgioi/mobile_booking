@@ -137,7 +137,18 @@ const fecthUserPost = async (req, res) => {
         const documents = await Post.find({ PosterID: userID });
 
         if (documents.length > 0) {
-            const formattedDocuments = documents.map(doc => {
+            const formattedDocuments = await Promise.all(documents.map(async doc => {
+                // Calculate actual rating from reviews
+                const reviews = await Review.find({ HotelID: doc.PostID });
+                let averageRating = 0;
+                let totalReviews = 0;
+                
+                if (reviews.length > 0) {
+                    const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+                    averageRating = Math.round((totalRating / reviews.length) * 10) / 10; // Round to 1 decimal
+                    totalReviews = reviews.length;
+                }
+
                 return {
                     PostID: doc.PostID,
                     PosterID: doc.PosterID,
@@ -148,10 +159,11 @@ const fecthUserPost = async (req, res) => {
                     country: doc.country,
                     describe: doc.describe,
                     addon: doc.addon,
-                    rating: doc.rating,
+                    rating: averageRating,
+                    totalReviews: totalReviews,
                     imgArr: doc.Posterimage || [] // Đổi thành imgArr giống fetchAllPost
                 };
-            });
+            }));
             res.json({ post: formattedDocuments });
         } else {
             res.status(404).json({ error: 'Post not found' });
@@ -207,7 +219,18 @@ const fecthAllPost = async (req, res) => {
     try {
         const posts = await Post.aggregate([{ $sample: { size: 10 } }]);
 
-        const formattedPosts = posts.map((post) => {
+        const formattedPosts = await Promise.all(posts.map(async (post) => {
+            // Calculate actual rating from reviews
+            const reviews = await Review.find({ HotelID: post.PostID });
+            let averageRating = 0;
+            let totalReviews = 0;
+            
+            if (reviews.length > 0) {
+                const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+                averageRating = Math.round((totalRating / reviews.length) * 10) / 10; // Round to 1 decimal
+                totalReviews = reviews.length;
+            }
+
             return {
                 PostID: post.PostID,
                 PosterID: post.PosterID,
@@ -218,10 +241,11 @@ const fecthAllPost = async (req, res) => {
                 country: post.country,
                 describe: post.describe,
                 addon: post.addon,
-                rating: post.rating,
+                rating: averageRating,
+                totalReviews: totalReviews,
                 imgArr: post.Posterimage || [], // Use Posterimage array directly
             };
-        });
+        }));
 
         res.json({
             posts: formattedPosts
@@ -278,7 +302,18 @@ const sortingPost = async (req, res) => {
        
               const result = await Post.find({ [vl]: data });
               
-              const formattedDocuments = result.map((rs) => {
+              const formattedDocuments = await Promise.all(result.map(async (rs) => {
+                // Calculate actual rating from reviews
+                const reviews = await Review.find({ HotelID: rs.PostID });
+                let averageRating = 0;
+                let totalReviews = 0;
+                
+                if (reviews.length > 0) {
+                  const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+                  averageRating = Math.round((totalRating / reviews.length) * 10) / 10; // Round to 1 decimal
+                  totalReviews = reviews.length;
+                }
+
                 return {
                   PostID: rs.PostID,
                   PosterID: rs.PosterID,
@@ -289,10 +324,11 @@ const sortingPost = async (req, res) => {
                   country: rs.country,
                   describe: rs.describe,
                   addon: rs.addon,
-                  rating: rs.rating,
+                  rating: averageRating,
+                  totalReviews: totalReviews,
                   imgArr: rs.Posterimage || [], // Use Posterimage array directly
                 };
-              });
+              }));
               return formattedDocuments; 
             })
           );
@@ -388,68 +424,65 @@ const updatePost = async (req, res) => {
       currentImageCount: post.Posterimage ? post.Posterimage.length : 0
     });
 
-    let imageUrls = post.Posterimage || [];
-    console.log('Current image URLs:', imageUrls);
+    // XÓA TẤT CẢ ẢNH CŨ TRƯỚC KHI CẬP NHẬT
+    const oldImageUrls = post.Posterimage || [];
+    console.log('Old image URLs to be deleted:', oldImageUrls);
     
-    // Filter out invalid/empty image URLs from existing images
-    const validExistingImages = imageUrls.filter(url => {
-      const isValid = url && 
-                     url.trim() !== '' && 
-                     url !== 'null' && 
-                     url !== 'undefined' &&
-                     url !== '""' &&
-                     url !== "''";
-      if (!isValid) {
-        console.log('Filtering out invalid image URL:', url);
-      }
-      return isValid;
-    });
-    
-    console.log('Valid existing images after filtering:', validExistingImages.length);
-    imageUrls = validExistingImages;
+    // Xóa tất cả ảnh cũ từ Cloudinary
+    if (oldImageUrls.length > 0) {
+      console.log('🗑️ DELETING OLD IMAGES FROM CLOUDINARY');
+      try {
+        // Xóa tất cả ảnh trong folder của post này
+        const cloudinaryResponse = await cloudinary.search
+          .expression(`folder:posts/${PostID}`)
+          .execute();
 
-    // Handle existing images from client if provided
-    const existingImageCount = req.body.existingImageCount ? parseInt(req.body.existingImageCount) : 0;
-    console.log('Client reported existing image count:', existingImageCount);
-    
-    if (existingImageCount > 0) {
-      // Get existing image URLs from client
-      const clientExistingImages = [];
-      for (let i = 0; i < existingImageCount; i++) {
-        const imageUrl = req.body[`existingImage_${i}`];
-        if (imageUrl && imageUrl.trim() !== '') {
-          clientExistingImages.push(imageUrl);
+        if (cloudinaryResponse.resources.length > 0) {
+          console.log(`Found ${cloudinaryResponse.resources.length} images to delete from Cloudinary`);
+          
+          // Xóa tất cả ảnh
+          const deletePromises = cloudinaryResponse.resources.map(resource => 
+            cloudinary.uploader.destroy(resource.public_id)
+          );
+          await Promise.all(deletePromises);
+          
+          console.log('✅ All old images deleted from Cloudinary successfully');
+        } else {
+          console.log('No images found in Cloudinary for this post');
         }
-      }
-      console.log('Client existing images:', clientExistingImages);
-      
-      // Use client's existing images if provided, otherwise use filtered server images
-      if (clientExistingImages.length > 0) {
-        imageUrls = clientExistingImages;
-        console.log('Using client-provided existing images');
+
+        // Xóa folder nếu có thể
+        try {
+          await cloudinary.api.delete_folder(`posts/${PostID}`);
+          console.log('✅ Cloudinary folder deleted successfully');
+        } catch (folderError) {
+          console.log('Folder deletion info:', folderError.message);
+        }
+      } catch (error) {
+        console.error('❌ Error deleting old images from Cloudinary:', error);
+        // Tiếp tục process dù có lỗi xóa ảnh cũ
       }
     }
 
-    // Nếu có file upload mới thì upload lên Cloudinary và cập nhật Posterimage
+    // UPLOAD ẢNH MỚI
+    let newImageUrls = [];
     if (req.files && req.files.length > 0) {
-      console.log('Processing new image uploads...');
+      console.log('📤 UPLOADING NEW IMAGES');
+      console.log(`Uploading ${req.files.length} new images...`);
       
       const uploadPromises = req.files.map(file => uploadImageToCloudinary(file, PostID));
       const uploadResults = await Promise.all(uploadPromises);
-      const newImageUrls = uploadResults.map(result => result.secure_url);
+      newImageUrls = uploadResults.map(result => result.secure_url);
       
-      console.log('New images uploaded successfully:', newImageUrls);
-      
-      imageUrls = imageUrls.concat(newImageUrls); // Giữ ảnh cũ, thêm ảnh mới
-      console.log('Updated image URLs array:', imageUrls);
+      console.log('✅ New images uploaded successfully:', newImageUrls);
     } else {
-      console.log('No new files to upload');
+      console.log('ℹ️ No new files to upload');
     }
 
-    console.log('Updating post data...');
+    console.log('📝 UPDATING POST DATA');
     
-    // Filter out any remaining invalid URLs before saving
-    const finalImageUrls = imageUrls.filter(url => {
+    // Chỉ sử dụng ảnh mới, không giữ ảnh cũ
+    const finalImageUrls = newImageUrls.filter(url => {
       const isValid = url && 
                      url.trim() !== '' && 
                      url !== 'null' && 
@@ -459,10 +492,13 @@ const updatePost = async (req, res) => {
       return isValid;
     });
     
-    console.log('Final image URLs count:', finalImageUrls.length);
-    console.log('Final image URLs:', finalImageUrls);
+    console.log('✅ FINAL RESULTS:');
+    console.log('- Old images deleted:', oldImageUrls.length);
+    console.log('- New images uploaded:', newImageUrls.length);
+    console.log('- Final image URLs count:', finalImageUrls.length);
+    console.log('- Final image URLs:', finalImageUrls);
     
-    // Cập nhật thông tin post
+    // Cập nhật thông tin post với ảnh mới hoàn toàn
     post.HotelName = HotelName;
     post.Address = Address;
     post.price = price;
@@ -470,9 +506,9 @@ const updatePost = async (req, res) => {
     post.country = country;
     post.describe = describe;
     post.addon = addon;
-    post.Posterimage = finalImageUrls;
+    post.Posterimage = finalImageUrls; // Chỉ chứa ảnh mới
 
-    console.log('Post data before save:', {
+    console.log('📄 POST DATA BEFORE SAVE:', {
       PostID: post.PostID,
       HotelName: post.HotelName,
       Address: post.Address,

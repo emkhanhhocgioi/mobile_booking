@@ -215,26 +215,41 @@ const ProfileScreen = () => {
   };
 
   const deletePost = async (postId) => {
-    Alert.alert(
-      'Delete Post',
-      'Are you sure you want to delete this post?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await axios.post(`${baseUrl}/api/admin/deletehotel`, { id: postId });
-              setPostData(prev => prev.filter(item => item.PostID !== postId));
-              Alert.alert('Success', 'Post deleted successfully');
-            } catch (error) {
-              Alert.alert('Error', 'Failed to delete post');
+    // For desktop, use window.confirm; for mobile, use Alert.alert
+    if (Platform.OS === 'web' || Platform.OS === 'windows' || Platform.OS === 'macos') {
+      // Desktop confirmation
+      if (window.confirm('Are you sure you want to delete this post?')) {
+        try {
+          await axios.post(`${baseUrl}/api/admin/deletehotel`, { id: postId });
+          setPostData(prev => prev.filter(item => item.PostID !== postId));
+          Alert.alert('Success', 'Post deleted successfully');
+        } catch (error) {
+          Alert.alert('Error', 'Failed to delete post');
+        }
+      }
+    } else {
+      // Mobile confirmation
+      Alert.alert(
+        'Delete Post',
+        'Are you sure you want to delete this post?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await axios.post(`${baseUrl}/api/admin/deletehotel`, { id: postId });
+                setPostData(prev => prev.filter(item => item.PostID !== postId));
+                Alert.alert('Success', 'Post deleted successfully');
+              } catch (error) {
+                Alert.alert('Error', 'Failed to delete post');
+              }
             }
           }
-        }
-      ]
-    );
+        ]
+      );
+    }
   };
 
   const resetForm = () => {

@@ -1,9 +1,11 @@
 import axios from 'axios';
+import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   Picker,
   Platform,
   RefreshControl,
@@ -61,6 +63,9 @@ const DestinationInput = () => {
   const [destdesc, setDestDesc] = useState('');
   const [selectedcountry,setSelectedCountry] = useState('')
   const [image, setImage] = useState(null);
+  const [imageUri, setImageUri] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [countries, setCountries] = useState(
     COUNTRIES.map(country => ({
       name: { common: country },
@@ -127,18 +132,53 @@ const DestinationInput = () => {
       return;  
     }
 
-    const formData = new FormData();
-    formData.append('DestinationName', destName.trim());
-    formData.append('DestinationDesc', destdesc.trim());
-    formData.append('destcountry', selectedcountry);
-    formData.append('file', image);
-
+    setUploading(true);
+    
     try {
-      const res = await axios.post(`${baseUrl}/api/admin/createdestination`, formData, {
+      // Step 1: Upload image first
+      setUploadingImage(true);
+      const imageFormData = new FormData();
+      
+      if (Platform.OS === 'web' && image.file) {
+        // For web platform
+        imageFormData.append('file', image.file);
+      } else {
+        // For mobile platform
+        imageFormData.append('file', {
+          uri: image.uri,
+          type: image.type || 'image/jpeg',
+          name: image.name || `destination_${Date.now()}.jpg`
+        });
+      }
+
+      const uploadResponse = await axios.post(`${baseUrl}/api/admin/upload-image`, imageFormData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
+
+      setUploadingImage(false);
+
+      if (!uploadResponse.data.success) {
+        throw new Error('Failed to upload image');
+      }
+
+      const imageUrl = uploadResponse.data.imageUrl;
+
+      // Step 2: Create destination with image URL
+      const destinationData = {
+        DestinationName: destName.trim(),
+        DestinationDesc: destdesc.trim(),
+        destcountry: selectedcountry,
+        imageUrl: imageUrl
+      };
+
+      const res = await axios.post(`${baseUrl}/api/admin/createdestination`, destinationData, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
       if (res.data) {
         Alert.alert('Success', 'Destination created successfully');
         // Reset form
@@ -146,13 +186,58 @@ const DestinationInput = () => {
         setDestDesc('');
         setSelectedCountry('');
         setImage(null);
+        setImageUri(null);
         setShowCreateForm(false);
         // Refresh data
         getDestinationData();
       }
     } catch (error) {
       console.error('Error creating destination:', error);
-      Alert.alert('Error', 'Failed to create destination');
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to create destination. Please try again.';
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setUploading(false);
+      setUploadingImage(false);
+    }
+  };
+
+  const handleImagePicker = async () => {
+    // Request permissions
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Sorry, we need camera roll permissions to make this work!');
+      return;
+    }
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        
+        // Check file size (estimate from dimensions, actual size might differ)
+        const estimatedSize = asset.width * asset.height * 4; // rough estimate
+        if (estimatedSize > 5 * 1024 * 1024) {
+          Alert.alert('File Too Large', 'Please select a smaller image');
+          return;
+        }
+        
+        setImage({
+          uri: asset.uri,
+          type: 'image/jpeg',
+          name: `destination_${Date.now()}.jpg`
+        });
+        setImageUri(asset.uri);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to pick image');
+      console.error('ImagePicker error:', error);
     }
   };
 
@@ -172,7 +257,13 @@ const DestinationInput = () => {
         return;
       }
       
-      setImage(file);
+      setImage({
+        uri: URL.createObjectURL(file),
+        type: file.type,
+        name: file.name,
+        file: file // Store actual file for FormData
+      });
+      setImageUri(URL.createObjectURL(file));
     }
   };
 
@@ -331,7 +422,7 @@ const DestinationInput = () => {
             </View>
           </View>
 
-          {Platform.OS === 'web' && (
+          {Platform.OS === 'web' ? (
             <View style={styles.fileInputContainer}>
               <Icon name="image" size={20} color="#666" style={styles.inputIcon} />
               <View style={styles.fileInputWrapper}>
@@ -342,17 +433,73 @@ const DestinationInput = () => {
                   style={styles.fileInput}
                 />
                 {image && (
-                  <Text style={styles.fileSelectedText}>
-                    File selected: {image.name}
+                  <View>
+                    <Text style={styles.fileSelectedText}>
+                      File selected: {image.name}
+                    </Text>
+                    {imageUri && (
+                      <View style={styles.imagePreviewContainer}>
+                        <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+                        <TouchableOpacity 
+                          style={styles.removeImageButton}
+                          onPress={() => {
+                            setImage(null);
+                            setImageUri(null);
+                          }}
+                        >
+                          <Icon name="close" size={16} color="#fff" />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </View>
+            </View>
+          ) : (
+            <View style={styles.imagePickerContainer}>
+              <Icon name="image" size={20} color="#666" style={styles.inputIcon} />
+              <View style={styles.imagePickerWrapper}>
+                <TouchableOpacity 
+                  style={styles.imagePickerButton} 
+                  onPress={handleImagePicker}
+                >
+                  <Icon name="camera-alt" size={20} color="#2196F3" />
+                  <Text style={styles.imagePickerButtonText}>
+                    {image ? 'Change Image' : 'Select Image'}
                   </Text>
+                </TouchableOpacity>
+                
+                {imageUri && (
+                  <View style={styles.imagePreviewContainer}>
+                    <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+                    <TouchableOpacity 
+                      style={styles.removeImageButton}
+                      onPress={() => {
+                        setImage(null);
+                        setImageUri(null);
+                      }}
+                    >
+                      <Icon name="close" size={16} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
                 )}
               </View>
             </View>
           )}
 
-          <TouchableOpacity style={styles.submitButton} onPress={createDest}>
-            <Icon name="save" size={20} color="#fff" />
-            <Text style={styles.submitButtonText}>Create Destination</Text>
+          <TouchableOpacity 
+            style={[styles.submitButton, uploading && styles.submitButtonDisabled]} 
+            onPress={createDest}
+            disabled={uploading}
+          >
+            {uploading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Icon name="save" size={20} color="#fff" />
+            )}
+            <Text style={styles.submitButtonText}>
+              {uploadingImage ? 'Uploading Image...' : uploading ? 'Creating...' : 'Create Destination'}
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -536,6 +683,58 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#4CAF50',
     fontStyle: 'italic',
+  },
+  imagePickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    paddingBottom: 12,
+  },
+  imagePickerWrapper: {
+    flex: 1,
+  },
+  imagePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f8ff',
+    borderWidth: 1,
+    borderColor: '#2196F3',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  imagePickerButtonText: {
+    fontSize: 16,
+    color: '#2196F3',
+    marginLeft: 8,
+    fontWeight: '500',
+  },
+  imagePreviewContainer: {
+    position: 'relative',
+    alignSelf: 'flex-start',
+  },
+  imagePreview: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#f44336',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#ccc',
   },
   submitButton: {
     flexDirection: 'row',

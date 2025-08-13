@@ -23,79 +23,78 @@ export default function Homscreen() {
   const TabsNav = () => {
     return (
       <Tab.Navigator>
-        <Tab.Screen
-          name="Explore"
-          component={MainPage}
-          initialParams={{ username: arr[1] }}
-          options={{
-            headerShown: false,
-            tabBarIcon: ({ color, size }) => (
-              <AntDesign name="home" size={size} color={color} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="profile"
-          component={ProfileScreen}
-          initialParams={{ username: arr }}
-          options={{
-            
-            headerShown: false,
-            tabBarIcon: ({ color, size }) => (
-              <AntDesign name="user" size={size} color={color} />
-            ),
-          }}
-        />
-        {arr[1].urole === 2 &&(
-        <Tab.Screen
-          name="schedule"
-          component={ScheduleScreen}
-          initialParams={{ uid: arr[1].uid }}
-          options={{
-            headerShown: false,
-            tabBarIcon: ({ color, size }) => (
-              <AntDesign name="calendar" size={size} color={color} />
-            ),
-          }}
-        />
-         )}
+      <Tab.Screen
+        name="Explore"
+        component={MainPage}
+        initialParams={{ username: arr[1] }}
+        options={{
+        headerShown: false,
+        tabBarIcon: ({ color, size }) => (
+          <AntDesign name="home" size={size} color={color} />
+        ),
+        }}
+      />
+      <Tab.Screen
+        name="profile"
+        component={ProfileScreen}
+        initialParams={{ username: arr }}
+        options={{
+        headerShown: false,
+        tabBarIcon: ({ color, size }) => (
+          <AntDesign name="user" size={size} color={color} />
+        ),
+        }}
+      />
+      {arr[1].urole === 2 &&(
+      <Tab.Screen
+        name="schedule"
+        component={ScheduleScreen}
+        initialParams={{ uid: arr[1].uid }}
+        options={{
+        headerShown: false,
+        tabBarIcon: ({ color, size }) => (
+          <AntDesign name="calendar" size={size} color={color} />
+        ),
+        }}
+      />
+       )}
        {arr[1].urole === 1 && (
-  <>
+    <>
       <Tab.Screen
-        name="OrderList"
-        component={Orderlist}
-        initialParams={{ uid: arr[1].uid }}
-        options={{
-          headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <AntDesign name="calendar" size={size} color={color} />
-          ),
-        }}
+      name="OrderList"
+      component={Orderlist}
+      initialParams={{ uid: arr[1].uid }}
+      options={{
+        headerShown: false,
+        tabBarIcon: ({ color, size }) => (
+        <AntDesign name="calendar" size={size} color={color} />
+        ),
+      }}
       />
       <Tab.Screen
-        name="Hotel Create"
-        component={HotelInputForm}
-        initialParams={{ uid: arr[1].uid }}
-        options={{
-          headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <AntDesign name="home" size={size} color={color} />
-          ),
-        }}
+      name="Hotel Create"
+      component={HotelInputForm}
+      initialParams={{ uid: arr[1].uid }}
+      options={{
+        headerShown: false,
+        tabBarIcon: ({ color, size }) => (
+        <AntDesign name="home" size={size} color={color} />
+        ),
+      }}
       />
       <Tab.Screen
-        name="Prenium"
-        component={SubscriptionScreen}
-        initialParams={{ uid: arr[1].uid }}
-        options={{
-          headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <AntDesign name="home" size={size} color={color} />
-          ),
-        }}
+      name="Prenium"
+      component={SubscriptionScreen}
+      initialParams={{ uid: arr[1].uid }}
+      options={{
+        headerShown: false,
+        tabBarIcon: ({ color, size }) => (
+        <AntDesign name="staro" size={size} color={color} />
+        ),
+      }}
       />
     </>
-  )}
+    )}
 
       </Tab.Navigator>
     );

@@ -3,7 +3,7 @@ const routerAdmin = express.Router();
 const {admingettk,getHotel,
     getOrder,getReview,
 deletetk,deletehotel,deleteReview,deleteOrder,
-createDestination,renderDestinationImg,renderDestination,deletDestination}  = require('../Controller/AdminController') ;
+uploadImageToCloudinary,createDestination,renderDestinationImg,renderDestination,deletDestination}  = require('../Controller/AdminController') ;
 
 const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
@@ -26,7 +26,8 @@ const upload = multer({
 
 
 
-routerAdmin.post('/admin/createdestination',upload.single('file'),createDestination)
+routerAdmin.post('/admin/upload-image',upload.single('file'),uploadImageToCloudinary)
+routerAdmin.post('/admin/createdestination',createDestination)
 routerAdmin.get('/admin/getuser',admingettk)
 routerAdmin.get('/getDestination',renderDestination)
 routerAdmin.get('/images/getdestimg',renderDestinationImg)

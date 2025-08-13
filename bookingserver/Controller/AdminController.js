@@ -1,8 +1,8 @@
-const taikhoan = require('../Model/accounts');
+
 const Order =  require('../Model/OrdersModels')
 const Review = require('../Model/ReviewModel')
 const Post = require('../Model/PostModel');
-const Taikhoan = require('../Model/accounts');
+
 const Dest = require('../Model/Destination');
 const mongoose =require('mongoose')
 const { uploadToCloudinary, deleteFromCloudinary } = require('../utils/cloudinaryHelper');
@@ -193,8 +193,34 @@ const deleteReview = async (req, res) => {
         return res.status(500).json({ message: "Đã xảy ra lỗi trong quá trình xóa.", error: err.message });
     }
 };
+const uploadImageToCloudinary = async(req,res) =>{
+    if (!req.file) {
+        return res.status(400).json({ error: 'Missing file' });
+    }
+    
+    try {
+        // Upload image to Cloudinary
+        const uploadResult = await uploadToCloudinary(req.file.buffer, {
+            folder: 'destinations',
+            public_id: `image_${Date.now()}`
+        });
+
+        res.status(200).json({
+            message: 'Upload image success',
+            imageUrl: uploadResult.secure_url,
+            success: true
+        })
+    } catch (error) {
+        console.error('Error uploading image:', error);
+        res.status(500).json({ 
+            error: error.message,
+            success: false 
+        })
+    }
+}
+
 const createDestination = async(req,res) =>{
-    const {DestinationName,destcountry,DestinationDesc} = req.body;
+    const {DestinationName,destcountry,DestinationDesc,imageUrl} = req.body;
 
     if(!DestinationName){
         res.status(400).json('no destination name')
@@ -204,30 +230,25 @@ const createDestination = async(req,res) =>{
         res.status(400).json('no description')
         return;
     }
-    if (!req.file) {
-        return res.status(400).json({ error: 'Missing file' });
+    if(!imageUrl){
+        res.status(400).json('no image URL')
+        return;
     }
-    
-    console.log(DestinationName,DestinationDesc)
+  
+    console.log(DestinationName,DestinationDesc,imageUrl)
     
     try {
-        // Upload image to Cloudinary
-        const uploadResult = await uploadToCloudinary(req.file.buffer, {
-            folder: 'destinations',
-            public_id: `dest_${DestinationName}_${Date.now()}`
-        });
-
         const doc = new Dest({
             DestinationName: DestinationName,
             DestinationDesc: DestinationDesc,
             DestinationCountry: destcountry,
-            Destinationimg: uploadResult.secure_url,
+            Destinationimg: imageUrl,
         })
         
         await doc.save();
         res.status(200).json({
             message: 'Create destination success',
-            imageUrl: uploadResult.secure_url
+            destination: doc
         })
     } catch (error) {
         console.error('Error creating destination:', error);
@@ -303,6 +324,7 @@ module.exports ={admingettk,deletetk,
     getHotel,deletehotel,
     getOrder,getReview,
     deleteReview,deleteOrder,
+    uploadImageToCloudinary,
     createDestination,
     renderDestinationImg,renderDestination,deletDestination
 }

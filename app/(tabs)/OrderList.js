@@ -69,6 +69,17 @@ const Orderlist = () => {
     setActionLoading(prev => ({ ...prev, [orderId]: isLoading }));
   };
 
+  const closeModal = () => {
+    setModalVisible(false);
+    setSelectedOrder(null);
+    fadeAnim.setValue(0); // Reset animation value
+  };
+
+  const openModal = (order) => {
+    setSelectedOrder(order);
+    setModalVisible(true);
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     await getincomingBooked();
@@ -94,11 +105,10 @@ const Orderlist = () => {
           },
         }
       );
-      Alert.alert('Success', 'Order has been accepted!', [
-        { text: 'OK', onPress: () => setModalVisible(false) }
-      ]);
       setOrderStatuses((prev) => ({ ...prev, [id]: 'Accepted' })); 
       await getincomingBooked();
+      closeModal(); // Sử dụng closeModal thay vì setModalVisible(false)
+      Alert.alert('Success', 'Order has been accepted!');
     } catch (error) {
       console.log('Error accepting order:', error);
       Alert.alert('Error', 'Failed to accept order. Please try again.');
@@ -126,11 +136,10 @@ const Orderlist = () => {
           },
         }
       );
-      Alert.alert('Success', 'Order has been denied!', [
-        { text: 'OK', onPress: () => setModalVisible(false) }
-      ]);
       setOrderStatuses((prev) => ({ ...prev, [id]: 'Denied' })); 
       await getincomingBooked();
+      closeModal(); // Sử dụng closeModal thay vì setModalVisible(false)
+      Alert.alert('Success', 'Order has been denied!');
     } catch (error) {
       console.log('Error denying order:', error);
       Alert.alert('Error', 'Failed to deny order. Please try again.');
@@ -156,11 +165,10 @@ const Orderlist = () => {
           },
         }
       );
-      Alert.alert('Success', 'Guest has been checked in!', [
-        { text: 'OK', onPress: () => setModalVisible(false) }
-      ]);
       setOrderStatuses((prev) => ({ ...prev, [id]: 'Check in' })); 
       await getincomingBooked();
+      closeModal(); // Sử dụng closeModal thay vì setModalVisible(false)
+      Alert.alert('Success', 'Guest has been checked in!');
     } catch (error) {
       console.log('Error checking in order:', error);
       Alert.alert('Error', 'Failed to check in. Please try again.');
@@ -186,11 +194,10 @@ const Orderlist = () => {
           },
         }
       );
-      Alert.alert('Success', 'Guest has been checked out!', [
-        { text: 'OK', onPress: () => setModalVisible(false) }
-      ]);
       setOrderStatuses((prev) => ({ ...prev, [id]: 'Check out' })); 
       await getincomingBooked();
+      closeModal(); // Sử dụng closeModal thay vì setModalVisible(false)
+      Alert.alert('Success', 'Guest has been checked out!');
     } catch (error) {
       console.log('Error checking out order:', error);
       Alert.alert('Error', 'Failed to check out. Please try again.');
@@ -274,8 +281,7 @@ const Orderlist = () => {
               { borderLeftColor: getStatusColor(item.orderStatus) }
             ]}
             onPress={() => {
-              setSelectedOrder(item); 
-              setModalVisible(true); 
+              openModal(item); // Sử dụng openModal thay vì setSelectedOrder và setModalVisible
             }}
             activeOpacity={0.7}
           >
@@ -387,14 +393,21 @@ const Orderlist = () => {
           visible={isModalVisible}
           animationType="slide"
           transparent={true}
-          onRequestClose={() => setModalVisible(false)}
+          onRequestClose={closeModal} // Sử dụng closeModal thay vì () => setModalVisible(false)
         >
-          <View style={styles.modalOverlay}>
-            <Animated.View style={[styles.modalContent, { opacity: fadeAnim }]}>
+          <TouchableOpacity 
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={closeModal} // Cho phép đóng modal khi nhấn vào overlay
+          >
+            <Animated.View 
+              style={[styles.modalContent, { opacity: fadeAnim }]}
+              onStartShouldSetResponder={() => true} // Ngăn chặn event bubble lên overlay
+            >
               <View style={styles.modalHeader}>
                 <Text style={styles.modalHeaderText}>Booking Details</Text>
                 <TouchableOpacity 
-                  onPress={() => setModalVisible(false)}
+                  onPress={closeModal} // Sử dụng closeModal thay vì () => setModalVisible(false)
                   style={styles.closeButton}
                 >
                   <Icon name="close" size={24} color="#666" />
@@ -555,7 +568,7 @@ const Orderlist = () => {
                 )}
               </View>
             </Animated.View>
-          </View>
+          </TouchableOpacity>
         </Modal>
       )}
     </View>

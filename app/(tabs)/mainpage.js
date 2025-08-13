@@ -286,9 +286,11 @@ const renderMeetups = () => {
                 <View style={styles.ratingContainer}>
                   <Icon name="star" size={14} color="#FFD700" />
                   <Text style={styles.ratingText}>
-                    {item.rating ? item.rating.toFixed(1) : '4.5'}
+                    {item.rating > 0 ? item.rating.toFixed(1) : 'New'}
                   </Text>
-                  <Text style={styles.reviewsText}>(120 reviews)</Text>
+                  <Text style={styles.reviewsText}>
+                    {item.totalReviews > 0 ? `(${item.totalReviews} reviews)` : '(No reviews yet)'}
+                  </Text>
                 </View>
                 
                 {/* Host Info */}
