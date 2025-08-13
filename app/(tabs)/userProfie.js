@@ -57,6 +57,7 @@ const ProfileScreen = () => {
   const [follower, setFollower] = useState(0);
   const [urole, setUrole] = useState(0);
   const [imageUri, setImageUri] = useState(null);
+  const [premium, setPremium] = useState(false);
   
   // Modal states
   const [isEditModalVisible, setEditModalVisible] = useState(false);
@@ -96,7 +97,8 @@ const ProfileScreen = () => {
       setFollower(data.followercount || 0);
       setFollowing(data.followingcount || 0);
       setUrole(data.urole || 0);
-      
+      setPremium(data.premium || false);
+      console.log('User data:', data);
       // Handle profile image
       if (data.imgProfile && data.imgProfile.trim() !== '') {
         setImageUri(data.imgProfile.startsWith('http') 
@@ -450,7 +452,7 @@ const ProfileScreen = () => {
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
             <TouchableOpacity 
-              style={styles.editProfileBtn}
+              style={[styles.editProfileBtn, premium ? { flex: 1 } : { flex: 1.5 }]}
               onPress={() => setEditModalVisible(true)}
             >
               <Icon name="pencil-outline" size={16} color="#4A90E2" />
@@ -458,7 +460,7 @@ const ProfileScreen = () => {
             </TouchableOpacity>
             
             <TouchableOpacity 
-              style={styles.refreshDataBtn}
+              style={[styles.refreshDataBtn, premium ? { flex: 1 } : { flex: 1.5 }]}
               onPress={onRefresh}
               disabled={refreshing}
             >
@@ -472,10 +474,12 @@ const ProfileScreen = () => {
               </Text>
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.premiumBtn}>
-              <Icon name="star-outline" size={16} color="#FFD700" />
-              <Text style={styles.premiumText}>Premium</Text>
-            </TouchableOpacity>
+            {premium && (
+              <TouchableOpacity style={styles.premiumBtn}>
+                <Icon name="star-outline" size={16} color="#FFD700" />
+                <Text style={styles.premiumText}>Premium</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -777,9 +781,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     width: '100%',
     gap: 8,
+    flexWrap: 'wrap',
   },
   editProfileBtn: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -796,7 +800,6 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   refreshDataBtn: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

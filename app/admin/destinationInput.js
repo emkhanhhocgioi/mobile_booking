@@ -279,7 +279,7 @@ const DestinationInput = () => {
           onPress: async () => {
             try {
               const res = await axios.post(
-                `${baseUrl}/api/admin/deleteDest`,
+                `${baseUrl}/api/admin/deletedest`,
                 { id: oid }, 
                 {
                   headers: {

@@ -1,10 +1,11 @@
-const taikhoan = require('../Model/accounts');
+const taikhoan = require('../Model/Accounts');
 const mongoose = require('mongoose');
 const {Types} = require('mongoose');
 const Subscript =require('../Model/PreniumModel') ;
 const { uploadToCloudinary, deleteFromCloudinary } = require('../utils/cloudinaryHelper');
 
-// Remove GridFS related code as we're now using Cloudinary
+
+
 
 
 
@@ -146,6 +147,10 @@ const getUserData = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // Check if user exists in Subscript collection
+    const subscription = await Subscript.findOne({ Userid: uid });
+    const isPremium = subscription ? true : false;
+
     const formattedDocument = {
       ObjecID: document._id,
       Email: document.Email,
@@ -155,6 +160,7 @@ const getUserData = async (req, res) => {
       followercount: document.followercount,
       followingcount: document.followingcount,
       imgProfile: document.imgProfile, // This is the Cloudinary URL
+      premium: isPremium,
     };
 
     res.json(formattedDocument);

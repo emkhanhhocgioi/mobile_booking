@@ -33,7 +33,13 @@ const HotelList = () => {
       }
     } catch (error) {
       console.error(error);
-      Alert.alert('Error', 'Failed to fetch hotel data');
+      // Check if running on web platform for error display
+      const isWeb = typeof window !== 'undefined';
+      if (isWeb) {
+        window.alert('Failed to fetch hotel data');
+      } else {
+        Alert.alert('Error', 'Failed to fetch hotel data');
+      }
     } finally {
       setLoading(false);
     }
@@ -62,39 +68,70 @@ const HotelList = () => {
 
   
   const deleteData = async (oid) => {
-    Alert.alert(
-      'Confirm Delete',
-      'Are you sure you want to delete this hotel?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const res = await axios.post(
-                `${baseUrl}/api/admin/deletehotel`,
-                { id: oid }, 
-                {
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
+    // Check if running on web platform
+    const isWeb = typeof window !== 'undefined';
+    
+    if (isWeb) {
+      // Web platform confirmation
+      const confirmed = window.confirm('Are you sure you want to delete this hotel? This action cannot be undone.');
+      if (!confirmed) return;
+      
+      try {
+        const res = await axios.post(
+          `${baseUrl}/api/admin/deletehotel`,
+          { id: oid }, 
+          {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+  
+        if (res.status === 200) {
+          window.alert('Hotel deleted successfully');
+          setData((prevData) => prevData.filter(item => item.PostID !== oid));
+          setFilteredData((prevData) => prevData.filter(item => item.PostID !== oid));
+        }
+      } catch (error) {
+        console.error(error);
+        window.alert('Failed to delete hotel');
+      }
+    } else {
+      // Mobile platform confirmation
+      Alert.alert(
+        'Confirm Delete',
+        'Are you sure you want to delete this hotel?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Delete', 
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const res = await axios.post(
+                  `${baseUrl}/api/admin/deletehotel`,
+                  { id: oid }, 
+                  {
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                  }
+                );
+          
+                if (res.status === 200) {
+                  Alert.alert('Success', 'Hotel deleted successfully');
+                  setData((prevData) => prevData.filter(item => item.PostID !== oid));
+                  setFilteredData((prevData) => prevData.filter(item => item.PostID !== oid));
                 }
-              );
-        
-              if (res.status === 200) {
-                Alert.alert('Success', 'Hotel deleted successfully');
-                setData((prevData) => prevData.filter(item => item.PostID !== oid));
-                setFilteredData((prevData) => prevData.filter(item => item.PostID !== oid));
+              } catch (error) {
+                console.error(error);
+                Alert.alert('Error', 'Failed to delete hotel');
               }
-            } catch (error) {
-              console.error(error);
-              Alert.alert('Error', 'Failed to delete hotel');
             }
           }
-        }
-      ]
-    );
+        ]
+      );
+    }
   };
 
   const renderHotelItem = ({ item }) => (

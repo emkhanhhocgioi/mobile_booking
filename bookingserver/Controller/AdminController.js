@@ -2,7 +2,7 @@
 const Order =  require('../Model/OrdersModels')
 const Review = require('../Model/ReviewModel')
 const Post = require('../Model/PostModel');
-
+const taikhoan = require('../Model/Accounts');
 const Dest = require('../Model/Destination');
 const mongoose =require('mongoose')
 const { uploadToCloudinary, deleteFromCloudinary } = require('../utils/cloudinaryHelper');
@@ -34,7 +34,7 @@ const admingettk = async (req,res) => {
     }
 }
 const deletetk = async (req, res) => {
-    const { id } = req.query;
+    const { id } = req.body;
 
     try {
 
@@ -73,7 +73,7 @@ const getHotel = async (req, res) => {
         const documentHotel = await Promise.all(
             rtndoc.map(async (doc) => {
                 
-                const tkdoc = await Taikhoan.findOne({ _id: doc.PosterID });
+                const tkdoc = await taikhoan.findOne({ _id: doc.PosterID });
 
                 if (!tkdoc) {
                     return {
@@ -107,9 +107,9 @@ const deletehotel = async (req, res) => {
         const doc = await Post.findOneAndDelete({ PostID: id });
 
         if (doc) {
-            return res.status(200).json({ message: "Tài khoản đã được xóa thành công.", data: doc });
+            return res.status(200).json({ message: "Hotel đã được xóa thành công.", data: doc });
         } else {
-            return res.status(404).json({ message: "Không tìm thấy tài khoản với ID này." });
+            return res.status(404).json({ message: "Không tìm thấy hotel với ID này." });
         }
     } catch (err) {
         console.error(err);
@@ -138,17 +138,17 @@ const getOrder = async (req,res) =>{
     }
 }
 const deleteOrder = async (req, res) => {
-    const { id } = req.query;
+    const { id } = req.body;
 
     try {
 
         const doc = await Order.findByIdAndDelete(id);
         if (doc) {
 
-            return res.status(200).json({ message: "Tài khoản đã được xóa thành công.", data: doc });
+            return res.status(200).json({ message: "Order đã được xóa thành công.", data: doc });
         } else {
 
-            return res.status(404).json({ message: "Không tìm thấy tài khoản với ID này." });
+            return res.status(404).json({ message: "Không tìm thấy order với ID này." });
         }
     } catch (err) {
      
@@ -179,13 +179,13 @@ const deleteReview = async (req, res) => {
     console.log(req.body)
     try {
 
-        const doc = await Order.findOneAndDelete(id);
+        const doc = await Review.findOneAndDelete({ ReviewID: id });
         if (doc) {
 
-            return res.status(200).json({ message: "Tài khoản đã được xóa thành công.", data: doc });
+            return res.status(200).json({ message: "Review đã được xóa thành công.", data: doc });
         } else {
 
-            return res.status(404).json({ message: "Không tìm thấy tài khoản với ID này." });
+            return res.status(404).json({ message: "Không tìm thấy review với ID này." });
         }
     } catch (err) {
      
@@ -309,10 +309,10 @@ const deletDestination = async (req,res) =>{
         const doc = await Dest.findByIdAndDelete(id);
         if (doc) {
 
-            return res.status(200).json({ message: "Tài khoản đã được xóa thành công.", data: doc });
+            return res.status(200).json({ message: "Destination đã được xóa thành công.", data: doc });
         } else {
 
-            return res.status(404).json({ message: "Không tìm thấy tài khoản với ID này." });
+            return res.status(404).json({ message: "Không tìm thấy destination với ID này." });
         }
     } catch (err) {
      

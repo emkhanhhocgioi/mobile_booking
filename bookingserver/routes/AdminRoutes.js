@@ -35,9 +35,9 @@ routerAdmin.post('/admin/deleteuser',deletetk)
 routerAdmin.get('/admin/gethotel',getHotel)
 routerAdmin.post('/admin/deletehotel',deletehotel)
 routerAdmin.get('/admin/getorder',getOrder)
-routerAdmin.post('/admin/deleteOrder',deleteOrder)
+routerAdmin.post('/admin/deleteorder',deleteOrder)
 routerAdmin.get('/admin/getreview',getReview)
-routerAdmin.post('/admin/deleteReview',deleteReview)
-routerAdmin.post('/admin/deleteDest',deletDestination)
+routerAdmin.post('/admin/deletereview',deleteReview)
+routerAdmin.post('/admin/deletedest',deletDestination)
 
 module.exports = routerAdmin;
