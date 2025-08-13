@@ -356,8 +356,21 @@ const Orderlist = () => {
             {Orderdata ? `${Orderdata.length} orders` : 'Loading...'}
           </Text>
         </View>
-        <View style={styles.headerIcon}>
-          <Icon style={styles.iconStyle} name="notifications" size={24} />
+        <View style={styles.headerActions}>
+          <TouchableOpacity 
+            style={styles.reloadButton}
+            onPress={() => getincomingBooked()}
+            disabled={loading}
+          >
+            <Icon 
+              style={[styles.iconStyle, loading && styles.rotatingIcon]} 
+              name="reload-outline" 
+              size={20} 
+            />
+          </TouchableOpacity>
+          <View style={styles.headerIcon}>
+            <Icon style={styles.iconStyle} name="notifications" size={24} />
+          </View>
         </View>
       </View>
   
@@ -602,6 +615,21 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     flex: 1,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  reloadButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    padding: 8,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rotatingIcon: {
+    opacity: 0.7,
   },
   headersText: {
     fontSize: 22,

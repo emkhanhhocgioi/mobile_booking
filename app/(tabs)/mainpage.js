@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import axios from 'axios';
 import { useEffect, useState } from 'react';
@@ -24,46 +25,7 @@ import ChatScreen from '../ai/ChatOpenaiScreen';
 import DestinationScreen from '../blog/DestinationScreen';
 import SortingScreen from '../blog/SortingPost';
 import HotelDetailScreen from '../hotelDetail';
-const fetch10Post = async () => {
-    try {
-      setLoading(true); 
-      const res = await axios.get(`${baseUrl}/api/getpost`);
-      setMeetsup(res.data); 
-      setFilteredMeetups(res.data);
-      console.log('Fetched posts:', res.data);
-    } catch (error) {
-      console.error('Error fetching posts:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetch10Post();
-    setRefreshing(false);
-  };
-
-  const handleSearch = (text) => {
-    setSearchQuery(text);
-    if (!meetups || !meetups.posts) return;
-
-    if (text.trim() === '') {
-      setFilteredMeetups(meetups);
-    } else {
-      const filtered = {
-        ...meetups,
-        posts: meetups.posts.filter(item =>
-          item.HotelName?.toLowerCase().includes(text.toLowerCase()) ||
-          item.Address?.toLowerCase().includes(text.toLowerCase()) ||
-          item.city?.toLowerCase().includes(text.toLowerCase()) ||
-          item.country?.toLowerCase().includes(text.toLowerCase()) ||
-          item.describe?.toLowerCase().includes(text.toLowerCase())
-        )
-      };
-      setFilteredMeetups(filtered);
-    }
-  };;
 let baseUrl = "http://localhost:5000";
 if (Platform.OS === "android") {
   baseUrl = "http://10.0.2.2:5000";
@@ -88,10 +50,184 @@ const MainPage = () => {
   const [slideAnim] = useState(new Animated.Value(50));
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredMeetups, setFilteredMeetups] = useState(null);
+  const [searchHistory, setSearchHistory] = useState([]);
+  const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [searchStats, setSearchStats] = useState({ total: 0, filtered: 0 });
   const navigation = useNavigation();
  
   const arr = route.params.username;
-  const [uid ,setUID] = useState('')
+  const [uid ,setUID] = useState('');
+
+  const fetch10Post = async () => {
+    try {
+      setLoading(true); 
+      const res = await axios.get(`${baseUrl}/api/getpost`);
+      setMeetsup(res.data); 
+      setFilteredMeetups(res.data);
+      console.log('Fetched posts:', res.data);
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetch10Post();
+    setRefreshing(false);
+  };
+
+  const handleSearch = (text) => {
+    setSearchQuery(text);
+    
+    if (!meetups || !meetups.posts) return;
+
+    // Generate search suggestions as user types
+    if (text.trim().length > 0) {
+      generateSearchSuggestions(text);
+      setShowSearchSuggestions(true);
+    } else {
+      setShowSearchSuggestions(false);
+      setSearchSuggestions([]);
+    }
+
+    // Filter results
+    if (text.trim() === '') {
+      setFilteredMeetups(meetups);
+    } else {
+      const searchTerms = text.toLowerCase().split(' ').filter(term => term.length > 0);
+      
+      const filtered = {
+        ...meetups,
+        posts: meetups.posts.filter(item => {
+          const searchableText = [
+            item.HotelName,
+            item.Address,
+            item.city,
+            item.country,
+            item.describe,
+            item.addon
+          ].join(' ').toLowerCase();
+
+          // Check if all search terms are found
+          return searchTerms.every(term => 
+            searchableText.includes(term) ||
+            // Fuzzy matching for typos
+            searchableText.includes(term.slice(0, -1)) ||
+            // Price range search
+            (term.includes('$') && item.price && item.price.toString().includes(term.replace('$', ''))) ||
+            // Price comparison search
+            (term.includes('under') && item.price && item.price <= parseInt(term.replace(/\D/g, '')) || 0) ||
+            (term.includes('over') && item.price && item.price >= parseInt(term.replace(/\D/g, '')) || 0) ||
+            // Rating search
+            (term.includes('star') && item.rating && item.rating >= parseInt(term.replace(/\D/g, ''))) ||
+            // Amenity search
+            (item.addon && item.addon.toLowerCase().includes(term))
+          );
+        })
+      };
+      setFilteredMeetups(filtered);
+      setSearchStats({ 
+        total: meetups.posts.length, 
+        filtered: filtered.posts.length 
+      });
+    }
+  };
+
+  const generateSearchSuggestions = (query) => {
+    if (!meetups || !meetups.posts) return;
+
+    const suggestions = new Set();
+    const queryLower = query.toLowerCase();
+
+    meetups.posts.forEach(item => {
+      // Add hotel names
+      if (item.HotelName && item.HotelName.toLowerCase().includes(queryLower)) {
+        suggestions.add(item.HotelName);
+      }
+      
+      // Add cities
+      if (item.city && item.city.toLowerCase().includes(queryLower)) {
+        suggestions.add(item.city);
+      }
+      
+      // Add countries
+      if (item.country && item.country.toLowerCase().includes(queryLower)) {
+        suggestions.add(item.country);
+      }
+      
+      // Add price ranges
+      if (queryLower.includes('$') || queryLower.includes('price')) {
+        suggestions.add(`Under $${Math.ceil(item.price / 50) * 50}`);
+      }
+      
+      // Add rating suggestions
+      if (queryLower.includes('star') || queryLower.includes('rating')) {
+        if (item.rating >= 4) suggestions.add('4+ stars');
+        if (item.rating >= 3) suggestions.add('3+ stars');
+      }
+    });
+
+    // Add search history matches
+    searchHistory.forEach(historyItem => {
+      if (historyItem.toLowerCase().includes(queryLower)) {
+        suggestions.add(historyItem);
+      }
+    });
+
+    setSearchSuggestions(Array.from(suggestions).slice(0, 5));
+  };
+
+  const selectSearchSuggestion = (suggestion) => {
+    setSearchQuery(suggestion);
+    handleSearch(suggestion);
+    setShowSearchSuggestions(false);
+    addToSearchHistory(suggestion);
+  };
+
+  const addToSearchHistory = async (query) => {
+    if (query.trim() && !searchHistory.includes(query)) {
+      const newHistory = [query, ...searchHistory.slice(0, 4)]; // Keep last 5 searches
+      setSearchHistory(newHistory);
+      
+      // Save to AsyncStorage
+      try {
+        await AsyncStorage.setItem('searchHistory', JSON.stringify(newHistory));
+      } catch (error) {
+        console.log('Error saving search history:', error);
+      }
+    }
+  };
+
+  const clearSearchHistory = async () => {
+    setSearchHistory([]);
+    try {
+      await AsyncStorage.removeItem('searchHistory');
+    } catch (error) {
+      console.log('Error clearing search history:', error);
+    }
+  };
+
+  const loadSearchHistory = async () => {
+    try {
+      const savedHistory = await AsyncStorage.getItem('searchHistory');
+      if (savedHistory) {
+        setSearchHistory(JSON.parse(savedHistory));
+      }
+    } catch (error) {
+      console.log('Error loading search history:', error);
+    }
+  };
+
+  const handleSearchSubmit = () => {
+    if (searchQuery.trim()) {
+      addToSearchHistory(searchQuery.trim());
+      setShowSearchSuggestions(false);
+    }
+  };
 
   const handleDestPress = () =>{
     setDestinationVis(true)
@@ -126,6 +262,7 @@ const MainPage = () => {
 useEffect(() => {
   setUID(arr); 
   fetch10Post();
+  loadSearchHistory(); // Load search history on app start
   
   // Animate entrance
   Animated.parallel([
@@ -159,29 +296,11 @@ useEffect(() => {
 }, [meetups]);
 
 const handleButtonPress = (data) => {
-  
   setModalVisible(true); 
   console.log(data);
   setHotelData(data);
 };
-const fetch10Post = async () => {
-    try {
-      setLoading(true); 
-      const res = await axios.get(`${baseUrl}/api/getpost`);
-      setMeetsup(res.data); 
-      console.log('Fetched posts:', res.data);
-    } catch (error) {
-      console.error('Error fetching posts:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetch10Post();
-    setRefreshing(false);
-  };
 const renderMeetups = () => {
   if (loading) {
     return (
@@ -363,27 +482,86 @@ const renderMeetups = () => {
   );
 };
 
-const renderHeaderIcons = () => {
-  return (
-    <ScrollView 
-      horizontal 
-      showsHorizontalScrollIndicator={false}
-      style={styles.headerIconsContainer}
-      contentContainerStyle={styles.headerIconsContent}
-    >
-      {iconButtons.map((button, index) => (
-        <TouchableOpacity 
-          key={index}
-          style={[styles.headerIconButton, { backgroundColor: button.color + '15' }]} 
-          onPress={button.action}
-        >
-          <Icon name={button.name} size={20} color={button.color} />
-          <Text style={[styles.iconLabel, { color: button.color }]}>{button.label}</Text>
-        </TouchableOpacity>
-      ))}
-    </ScrollView>
-  );
-};
+  const renderSearchSuggestions = () => {
+    if (!showSearchSuggestions || (!searchSuggestions.length && !searchHistory.length)) {
+      return null;
+    }
+
+    return (
+      <View style={styles.searchSuggestionsContainer}>
+        {/* Current suggestions */}
+        {searchSuggestions.length > 0 && (
+          <>
+            <Text style={styles.suggestionHeader}>Suggestions</Text>
+            {searchSuggestions.map((suggestion, index) => (
+              <TouchableOpacity
+                key={`suggestion-${index}`}
+                style={styles.suggestionItem}
+                onPress={() => selectSearchSuggestion(suggestion)}
+              >
+                <Icon name="search-outline" size={16} color="#666" />
+                <Text style={styles.suggestionText}>{suggestion}</Text>
+              </TouchableOpacity>
+            ))}
+          </>
+        )}
+
+        {/* Search history */}
+        {searchHistory.length > 0 && (
+          <>
+            <View style={styles.historyHeader}>
+              <Text style={styles.suggestionHeader}>Recent Searches</Text>
+              <TouchableOpacity onPress={clearSearchHistory}>
+                <Text style={styles.clearHistoryText}>Clear</Text>
+              </TouchableOpacity>
+            </View>
+            {searchHistory.map((historyItem, index) => (
+              <TouchableOpacity
+                key={`history-${index}`}
+                style={styles.suggestionItem}
+                onPress={() => selectSearchSuggestion(historyItem)}
+              >
+                <Icon name="time-outline" size={16} color="#666" />
+                <Text style={styles.suggestionText}>{historyItem}</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    const newHistory = searchHistory.filter((_, i) => i !== index);
+                    setSearchHistory(newHistory);
+                  }}
+                  style={styles.removeHistoryButton}
+                >
+                  <Icon name="close" size={14} color="#999" />
+                </TouchableOpacity>
+              </TouchableOpacity>
+            ))}
+          </>
+        )}
+      </View>
+    );
+  };
+
+  const renderHeaderIcons = () => {
+    return (
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        style={styles.headerIconsContainer}
+        contentContainerStyle={styles.headerIconsContent}
+      >
+        {iconButtons.map((button, index) => (
+          <TouchableOpacity 
+            key={index}
+            style={[styles.headerIconButton, { backgroundColor: button.color + '15' }]} 
+            onPress={button.action}
+          >
+            <Icon name={button.name} size={20} color={button.color} />
+            <Text style={[styles.iconLabel, { color: button.color }]}>{button.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -402,27 +580,35 @@ const renderHeaderIcons = () => {
         
         {/* Search Bar */}
         {ScreenType === 0 && (
-          <View style={styles.searchContainer}>
-            <View style={styles.searchInputContainer}>
-              <Icon name="search" size={20} color="#999" style={styles.searchIcon} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search hotels, locations, or cities..."
-                placeholderTextColor="#999"
-                value={searchQuery}
-                onChangeText={handleSearch}
-                returnKeyType="search"
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity 
-                  onPress={() => handleSearch('')}
-                  style={styles.clearButton}
-                >
-                  <Icon name="close-circle" size={20} color="#999" />
-                </TouchableOpacity>
-              )}
+          <>
+            <View style={styles.searchContainer}>
+              <View style={styles.searchInputContainer}>
+                <Icon name="search" size={20} color="#999" style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search hotels, locations, or cities..."
+                  placeholderTextColor="#999"
+                  value={searchQuery}
+                  onChangeText={handleSearch}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => setIsSearchFocused(false)}
+                  onSubmitEditing={handleSearchSubmit}
+                  returnKeyType="search"
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity 
+                    onPress={() => handleSearch('')}
+                    style={styles.clearButton}
+                  >
+                    <Icon name="close-circle" size={20} color="#999" />
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
-          </View>
+            
+            {/* Search Suggestions */}
+            {renderSearchSuggestions()}
+          </>
         )}
         
         {/* Action Buttons */}
@@ -434,16 +620,39 @@ const renderHeaderIcons = () => {
         {/* Stats Bar for hotel listings */}
         {ScreenType === 0 && (meetups && meetups.posts) && (
           <View style={styles.statsContainer}>
-            <Text style={styles.statsText}>
-              {filteredMeetups ? 
-                `${filteredMeetups.posts?.length || 0} of ${meetups.posts?.length || 0} hotels` :
-                `${meetups.posts?.length || 0} hotels available`
-              }
-            </Text>
-            {searchQuery && (
-              <Text style={styles.searchQueryText}>
-                for "{searchQuery}"
+            <View style={styles.statsRow}>
+              <Text style={styles.statsText}>
+                {filteredMeetups ? 
+                  `${filteredMeetups.posts?.length || 0} of ${meetups.posts?.length || 0} hotels` :
+                  `${meetups.posts?.length || 0} hotels available`
+                }
               </Text>
+              {searchQuery && (
+                <View style={styles.searchStatsContainer}>
+                  <Text style={styles.searchQueryText}>
+                    for "{searchQuery}"
+                  </Text>
+                  {searchStats.filtered === 0 && searchStats.total > 0 && (
+                    <Text style={styles.noResultsHint}>
+                      Try simpler terms or check spelling
+                    </Text>
+                  )}
+                </View>
+              )}
+            </View>
+            
+            {/* Search result summary */}
+            {searchQuery && filteredMeetups && filteredMeetups.posts && (
+              <View style={styles.searchSummary}>
+                <Text style={styles.searchSummaryText}>
+                  {filteredMeetups.posts.length === 0 ? 
+                    "No matches found" : 
+                    filteredMeetups.posts.length === 1 ? 
+                    "1 hotel matches your search" :
+                    `${filteredMeetups.posts.length} hotels match your search`
+                  }
+                </Text>
+              </View>
             )}
           </View>
         )}
@@ -548,22 +757,44 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   statsContainer: {
+    backgroundColor: '#F8FAFF',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: '#F8FAFF',
+    justifyContent: 'space-between',
+    marginBottom: 4,
   },
   statsText: {
     fontSize: 14,
     color: '#666',
     fontWeight: '500',
   },
+  searchStatsContainer: {
+    flex: 1,
+    marginLeft: 10,
+  },
   searchQueryText: {
     fontSize: 14,
     color: '#007BFF',
-    marginLeft: 5,
     fontStyle: 'italic',
+  },
+  noResultsHint: {
+    fontSize: 12,
+    color: '#FF6B6B',
+    marginTop: 2,
+  },
+  searchSummary: {
+    marginTop: 4,
+  },
+  searchSummaryText: {
+    fontSize: 13,
+    color: '#333',
+    fontWeight: '600',
   },
   loadingContainer: {
     flex: 1,
@@ -601,6 +832,59 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     padding: 5,
+  },
+  searchSuggestionsContainer: {
+    backgroundColor: '#fff',
+    marginHorizontal: 20,
+    marginTop: -10,
+    borderRadius: 12,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    paddingVertical: 10,
+    maxHeight: 300,
+  },
+  suggestionHeader: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f8f8f8',
+  },
+  suggestionText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+    marginLeft: 10,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  clearHistoryText: {
+    fontSize: 14,
+    color: '#007BFF',
+    fontWeight: '600',
+  },
+  removeHistoryButton: {
+    padding: 4,
   },
   emptyContainer: {
     flex: 1,
